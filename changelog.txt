@@ -1,0 +1,304 @@
+Changelog:
+
+8.14.11 Verrsion 1.72
+ *Complete rewrite of the download functions. Much more efficient, download speed increased significantly. Download function is now properly threaded. If anything breaks let me know.
+ *Download function know returns more specific error cases.
+ *Webserver now runs multithreaded. This speeds up simoultaneous downloads significantly.
+ *Webserver gives more info on downloads.
+ *If no webserver password is set, the bot now sets a random one.
+ *Removed: Webserver database output, since its broken. If anyone actually used this, let me know!
+ *File web.py is now obsolete. The webserver is integrated in WHATauto.py
+ *Download function for hdbits changed. Username and password are only required for downloading, no passkey needed. Requires setting 'Lock session to IP' to No under 'Profile'-'Security' on hdbits.
+ *Fix: Automatic downloads which do not match the size filter or have raised a download error increase the downloaded count in %stats.
+ *Fix: reconnect function fails under certain conditions
+ *Exceptions are now logged to file for easier debugging
+ *Changed output formatting for easier readability
+ *The logfile for the most recent session is being written into logs/pyWALog.txt (as well as to the date formated path) to allow for quicker access. It gets overwritten on each restart.
+ *Fix: the reports are not logged properly
+ *Added message level 'warning', for important but messages which are not errors
+
+8.10.11 Version 1.71
+ *Quick bugfix of some typos
+
+8.10.11 Version 1.7
+ *Blubba's first major release
+ *Probably half of the code has been rewritten
+ *The bots _should_ now be stable - they detect and handle network errors and timeouts now (no more need to %disconnect and %connect because the bot had silently timed out)
+ *Two new functions, %whoisall and %whoami: %whoisall sends a whois to all announce bots on all currently connected networks and returns the findings, checking their idents with those found in regex.conf. This should simplify the process of determining faults in the config file. %whoami sends a whois on each connected network for the botnick. It checks if the bot is currently in the announce channel, and reports back to the user.
+ *Most user functions have been rewriten, mostly to stop running into Exceptions. If you find a way to break the bot, let me know!
+ *A lot of sites where added. The connect functions are now checking more closely if enough variables in credentials.conf are set.
+ *the keys for each site in credentials.conf have changed for quite a few sites. If you want to use a site properly, you will need to fill them all out.
+ *Fixed a major security issue.
+ *Runs on python 2.5, 2.6 and 2.7
+ *Option to bind the webserver to a specific ip. This is set under 'webserverip' in setup.conf
+ *Lots of other things have changed.
+
+9.9.10 Version 1.29
+ *Added a fun command. %ragequit
+ *Fixed the waffles download url. Waffles will NOT work unless you upgrade to 1.29!
+ *Spruced up the download routine a bit to handle filenames passed by the GM script
+ *Updated TC's regex. You must add the "irckey" field in credentials.conf for it to work.
+ *You no longer need filtertype= on sites that only have one announce type. For now, the only site that requires filtertype is what.cd
+ *Bitgamer login fixed.
+ *Fixed the version checking before %update.
+ *Added capturing of naughty announcements that don't fit my regex. The only way this will help is if your bot is ALSO on the what network!
+ *Fixed PTP's regex, and switched to #announce since HAL isn't in #announce-ssl anymore. Also, the available filter options have changed, since they are using a new announce format.
+
+9.6.10 Version 1.28
+ *Changed the behavior of threads being created/deleted for parsing announcements. Nothing should be missed now! (Thanks to mavin for pointing it out!).
+ *Fixed the "size" filter to handle torrents that are created in a non-traditional way (BMTV!).
+ *Changed the "size" output level. It is now at "info" and not "filter".
+ *Added the sqliteDB for creating a history of announcements!
+ *Added a website (VERY basic) that shows that last 100 announcements for every site. http://<seedboxIP>:<port>/index.pywa
+ *Added support for the Unicode in many circumstances.
+ *Added the ability to have the bot download a torrent via http://<seedboxIP>:<port>/dl.pywa?password=<pass>&site=<name>&id=<number>
+ *The above, integrated with a Greasemonkey script, allows you to one-click download to your torrent box ;)
+ *Added deli.sh.
+ *Added awesome-hd.
+ *Re-Added karagarga.
+
+8.12.10 Version 1.27
+ *Fix for What.cd's mis-spelling of "attachment" so that torrent names are back to names and not numbers.
+ *Fix for BTN's regex. "releasename" is now a filter option (not all BTN's releases have it though).
+ *Fixed the all_tags filter option. It should work now! HOWEVER, all_tags DOES NOT use regex since it uses a special matching comparison. In all_tags, using "cience" WILL match "science". DO NOT PREPEND ANY TAGS IN ALL_TAGS WITH A @!
+ *Added the SIZE limiter to ALL sites! (Thanks paperk!). Use like "size=small limit, upper limit". THIS IS IN MEGABYTES. If you use GB in any other filters, like on SCC, you have to convert to MB! 
+
+8.1.10 Version 1.26:
+ *Fixed a bug that %sites to crash the bot when using custom.conf (ty pred!)
+ *STR regex fixed.
+ *Added karagarga.
+ *Started adding in the freepercent routine to stop downloads. Not finished.
+ *Added in a fix for what.cd to include REFERER when logging in.
+ *Added in the USER-AGENT when logging in. Just for kicks, right?
+
+7.9.10 Version 1.25:
+ *Changed when pyWA uses credentials to connect to an irc server. If, under credentials, you specify ircusesignon=1 then pyWA will send the username/password combo when connecting to the server (usually used for bouncers). If it is not present, then it will just connect anonymously.
+ *Added the ability for pyWA to handle several torrent sites all on the same physical IRC network. For this to work, all the sites MUST specify the EXACT SAME irc server in the address field. However, there are a few quirks with this implementation. If both sites specify the same channel to join in #chanfilter, then it will respond to commands twice!
+ *Added TheBox, TheEmpire, (both require a preset cookie) and HDBits (Thanks predakanga!) For this to work you need to add the sites to setup.conf, and the relevant sections to credentials.conf!
+ *Fixed a bug when disconnecting a network when not using the alias name. (Thanks predakanga!)
+
+7.7.10 Version 1.24:
+ *Updated TL's regex to add 'group' as a filter option.
+ *Changed PTP's announce channel and format.
+ *%version now shows pyWA and regex.conf versions.
+ *Waffles support added, which required re-tooling the download routines. 
+
+6.16.10 Version 1.23:
+ *Fixed a bug in loading site info, and sped it up.
+ *Added error checking for incorrect cookie formats.
+ *Fixed PTP regex
+ *Fixed BMTV regex
+ *Added the %update command to update your regex.conf file quickly. This does version checks as well to make sure you are using a compatible version of pyWA.
+ *Re-organized how pubMSGs are handled so I can debug easier.
+ *Added some more attitude to the bot.
+ *Added catches in several places for blank nickowners. If a nickowner is blank, it will warn you at startup, and won't respond on that network.
+ *Hopefully fixed an issue where toggling filters manually would cause tons of new threads to open and never close. (TY PHERSICK!)
+
+6.8.10 Version 1.22:
+ *Fixed the whois command so it clears previous lookups
+ *Fixed the manual download command when dealing with aliases/custom.conf. How did I miss this?
+ *Fixed another bug in man downloading across sites.
+ *Fixed HFU auto-downloading
+ *Fixed a LOCK.release() bug on manual downloads that failed.
+ *Re-wrote how authentication is configured. A new conf option in regex.conf called "authstring" specifies the line to use to request access to the announce channel. This can be used in custom.conf to add your own networks.
+ *Changed the regex.conf for PTP
+ *Fixed where the credentials for irc servers that require username/password is pulled from.
+ *Added a socket timeout, hopefully to stop pyWA from waiting forever for a site to respond and keeping open tons of threads. This is just a shot in the dark.
+
+5.25.10 Version 1.21:
+ *Fixed toggle option matching
+ *Added cross-network channel joins/parts, as well as automatic pre-pending of the "#" if it is missing.
+ *Fixed the delay on downloads to only apply to automatic downloads. Somewhere along the line I switched the comparison.
+ *Added a cross-network WHOIS command so you can see if you are in a channel or not.
+
+5.18.10 Version 1.2:
+ *Fixed BTN. Nickowner changed.
+ *Added the TITLE tag for BTN. It is the scene release title, but is NOT always included in all announcements.
+ *Logging does not make one huge file anymore. It will create a new log every 24 hours.
+ *Until further notice, there are no automatic "rule exceptions" for log/logper/cue. This means that if you put log/logper/cue in your filter, it will ALWAYS be required, even if you have format=MP3. This means you'll have to create copies for your FLAC filters!
+ *You will receive a log error if you've set up notifications on a network that the bot is currently not connected to.
+ *You can now put your custom sites in CUSTOM.CONF and won't have to re-add them everytime I make major changes to regex.conf/etc. A sample site is there as an example.
+ *You can now type "%status" as well as "%stats".
+
+5.3.10 Version 1.14159:
+ *Manual downloads shouldn't notify you with an email anymore.
+ *Automatic downloads however, will. Sorry, had that reversed before, obviously.
+ *Private messages from a nickowner using Regex can control the bot again.
+ *Fixed the help for filters, and a crash when using '%filter help'.
+ *Every filter can now be set to email=1 or email=0 to enable/disable (respectively) emailing for that filter. This overrides the global setting.
+ *The option to PM a user on a successful download is now working!
+ *Every filter can now be set to notify=1 or notify=0 to enable/disable (respectively) notifying you on IRC for that filter. This overrides the global setting.
+ *Added support for username/pass combos when connecting to an IRC server (for bouncers, mainly. Thanks SeveredCross)
+ *Thanks to Phersick for pointing out broken not_filter options, the not_ filter options have been revamped. 
+ *'tags' uses a re.search regex, while all other filter options use re.match. This means that you don't have to worry about regex ("V.*") matching the middle of a value ("Hive"). 
+ *Filter values now have a new format. Pre-pending the @ symbol to any value will force the bot to match using regex, otherwise it defaults to literal matching.
+ *The default filter matching technique is now LITERAL MATCHING, not regex.
+ *Fixed a bug that caused pyWA running under 2.5 to crash when I pondered.
+ *Added a 1 sec timer between identifying and joining channels. This should cut down on join spam. (At the request of Blubba :) 
+
+4.28.10 Version 1.1415:
+ *Made it so SCC packs capturing with a completely blank filter did not cause matches with announcements that aren't packs.
+ *Added full SciHD support
+ *Added the ability to send a gmail when pyWA auto-downloads
+ *Added the configuration options for IRC notification when pyWA auto-downloads. This will be added in a future release.
+ *Added full STR support
+ *Fixed a really bad bug that caused the entire bot to quit gracefully if a single network/site decided to disconnect the bot.
+ *Did some work on BTN's announce/capturing
+ *Changed the way matching works with filters. You no longer have to worry about things like: group=V.* matching "HelloVHAHAH". It will only match things that START with V.
+ *I am actually using my own bot again, so development should pick up ;)
+
+4.25.10 Version 1.141:
+ *Fixed a bug that required not_tags to be formatted differently than all the other tags. This is no longer the case.
+ *Fixed BTN's announce format
+ *Regex can now be used in the nickowner field.
+ *Fixed/added SCC packs announcements
+
+4.8.10 Version 1.14:
+ *Fixed a bug in the "tags" filter option that was making it act like "all_tags"
+ *Added filter info output when "all_tags" is the cause for failure
+ 
+4.7.10: Version 1.1:
+ *Fixed the P&TB routine again. IT WILL WORK.
+ *Fixed a crash when trying to exit but logging was turned off.
+ *Added 2.5 support with a bunch of help from Yots! w00t!
+ *Changed BTN to their new bot/channel join system.
+ *Added FILTER disable/enable support!
+ *Fixed a bug where setting limit=0 and issuing a %free command caused a crash. 
+  								
+4.2.10: Version 1:
+ *Added TehConnection.eu support!
+ *Added Animebyt.es support!
+ *Added TheGFT.org support!
+ *Added IPTorrent support! (Requires pre-set cookie)
+ *Added fux0r.eu support!
+ *Torrentleech support! (Requires pre-set cookie)
+ *BitGamer support!
+ *Added ScienceHD manual download support.
+ *Added the ability to write to logs. Everything show in the output window will be written. NOTE: THIS CAN GET HUGE VERY FAST, especially if verbosity:debug is on!
+ *Added better error checking for .torrent files. If the file is not at least 100bytes, then we know the torrent is bad, so pyWA will try to download it again up to 2 more times.
+ *Error handling if the drive accidentally becomes full
+ *Multiple entries added into the %help menu
+ *Added the setup option "limit" for shared seedboxes, as well as a better routine for gathering information on how much space is left in shared environments. If this option is left blank, pyWA will try to determine how much space you have left (in shared environments it WILL be wrong!).
+ *When specifying cue/log, you now still need to specify that you want FLAC as the format since some releases are MP3 and have cues/log.
+ *Re-tooled the "size" filter option. The format is now size=lower limit, upper limit (in GB). Example: size=0.2,20
+ *CapITal LetTErS in nickowner don't matter anymore. (ty Brenex)
+ *Fixed the notification when you are forced joined into a channel. 
+ *Added error handling when a torrent doesn't exist and the site returns a 404 error.
+ *Added error handling when someone deletes a torrent just as you are requesting it.
+ *Added error handling for sites that require pre-set cookies and don't have username/password in credentials.conf.
+ *Removed a bunch of extraneous code that probably just slowed things down.
+ *Completely revamped stripping IRC codes out, so hopefully colored announces won't be such a problem.
+ *Fixed the P&tB routine. I need to have my fun!
+ 
+3.25.10: Release Candidate 3:
+ *REMOVED waffles.fm support because of the download routine overhaul. I could not, for the life of me, figure out how to get python+cookies to work correctly with waffles. ALL other websites work fine with this mechanism. If you can figure out how to download a torrent with a preset cookie in python on waffles.fm, then show me so I can implement it. Until then, they are no longer supported. 
+ *Added SCC and BMTV support! (Requires making your own cookies!)
+ *Your bot ABSOLUTELY MUST be registered with nickserv for this new version to work. This alleviates many headaches when requesting for channel access and ident routines haven't finished. ALL requests are now only made after a successful ident!
+ *When starting pyWHATauto, the version number is printed so you know what you're running.
+ *Sending a %disconnect <networkA> from networkA no longer causes an exception
+ *Fixed several bugs that caused pyWHATauto to crash after issuing an improper %disconnect command.
+ *The %disconnect command now properly removes that network from %stats (and some background stuff)
+ *You can now send a raw command at startup. I implemented it to enable vhosts at connection, but you could use it for anything (as long as the format is right!) It is the credential.conf option cmd=command.
+ *All output messages are prepended with the network that it came from using aliases if possible.
+ *Cleaned up filter output quite a bit. Definitely less-spammy.
+ *Cleaned up the entire output window a ton in the spirit of making it actually readable!
+ *DEBUG mode now spits out less useless information, and will also show the header information passed during a download negotiation.
+ *All websites now re-use cookies and try to login with them when downloading torrents. This is much faster!
+ *Fixed a bug that caused network disconnects when connecting to 4+ networks. Also, connecting is much, much faster.
+ *Change %sites to show all networks and their nicknames that pyWHATauto supports, seperated by enabled and disabled.
+ *Added a %connect <network> command. There is very little error-checking, but it works at least!
+ *eBooks on WHAT.cd work again.
+ *Removed all time.sleep() routines, so the bot is never waiting for something to happen causing timeouts. Everything is event driven.
+ *A bunch of minor bug fixes and a somet a little extra just for fun ;)
+
+3.22.10: Release Candidate 2:
+ *Fixed a bug where just sending "%download" would cause a crash.
+ *Full support for passthepopcorn.net. The bot that runs announces has changed ident twice since I added support, which caused breakages. Looking at how to fix this and still keep the script secure.
+ *Full Waffles.fm support!
+ *Full TorrentVault support.
+ *The bot will now auto-ghost after connecting, and re-take it's name.
+ *Added the commands %nick <nickname> and %ghost to help with nickname issues.
+ *Added the universal %cmd <whatever the hell you want> to send commands through the bot. To use it, follow these guidelines: http://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands. It is best to use the built-in pyWHATauto commands if possible, otherwise use this.
+ *Fixed the filter option nomenclature on BTN thanks to qbic. Scene/fasttorrent are now a toggle options, and "source" is as it should be.
+ *pyWHATauto now uses the #btn-whatuto channel on BTN, and captures the new announcement format in that channel. It still joins #btn-announce for ident/authorization. Until they add filenames to the new announcements, the tag option "filename" has been removed.
+ *Fixed a bug where the bot would crash if you sent it a blank %join or %part command.
+ *Added an %uptime command.
+ *Added a %statsreset command.
+ *If a filter option is left blank, it should no longer cause a failed match for that filter.
+ *Filter options that just use 0 or 1 as toggle options will no longer use not_option as well. Instead, 0 will mean "don't have this" and 1 will mean "have this". Ex: scene=1 means only scene releases, and scene=0 means no scene releases.
+ *PMing commands to the bot works now.
+ *Manual downloads across multiple sites from the same channel work correctly now.
+ *Moved the toggles for each network back to setup.conf so you can more easily and quickly toggle networks on and off.
+ *Did somet tricky to keep all you people from changing the only code in there that's fun for me ;)
+ *You can now have the bot download from sites that the bot isn't currently connected to. For example, you can disable BTN in setup.conf, but still manually download torrents from it using %download btn id. The username/password information must be setup in credentials!
+ *Added more error checking for manually downloading torrents. If a torrent id is invalid and the site uses gazelle, then you will get a notification that the torrent doesn't exist. The other sites will have more error checking soon as well.
+ *Added the ability to have 1 alias per network! Wooohoo! So now you can use "btn" for broadcasthenet, or whatever you set up. Change it in setup.conf. This ONLY works for commands sent in the IRC channel, not for anything in the confs.
+ 
+3.15.10: Release Candidate 1:
+ *Fixed a recursion bug that would cause it to crash after sitting for a long time.
+ *Watch folders in the filters will now be used if set, otherwise the default will be used.
+ *All custom watch folders in credentials/filters will be checked to make sure they exist on startup and on %reload. Tons of error handling/checking on these folders have been added. Many bugs introduced, and then fixed.
+ *Fixed a bug where if the nickowner sent a message that started with a space it would crash the bot.
+ *Fixed the bug where %stats would stop responding after a long period of running.
+ *Implemented the ability to change how to connect to a server based on the regex.conf toggle options "port" and "ssl"
+ *Added in the ability to watch all irc events not explicitly handled by pyWHATauto by using the verbosity:debug option. Warning: THIS WILL SPAM YOU
+ *The bot will now automatically change it's nickname if the nick it is using is already taken on connect.
+ *If the irc server sends a line termination notice (irc type of 'error') the bot will try to reconnect 5 seconds later.
+ *Error checking has been introduced in many places where users could input CapiTAl LEttErs In THEiR conFiGS. Much more needed.
+ *Fixed the %free/%drive command on linux.
+ *Finished making pyWHATauto site-agnostic. It now fully works on BTN! I just need information about the other sites to edit the REGEX.conf to support them.
+ *Output of the DEBUG lines should be more useful as it includes what server sent the information.
+ *You should receive only one DEBUG message per error now, instead of one for every network currently connected.
+ *Tons more error checking and exception catches. Not perfect, but it's better!
+ *Initial support for theplace.bz. Might need access to verify how downloads are done and change some code in the bot, not sure yet.
+
+3.11.10: Alpha r3:
+ *Multiple values for filters can now be separated by both newlines or comma. A space when using commas is not required, but it makes for easier readability.
+ 	-- Note that if you decide to use newlines, every new line must be tabbed in!
+ *A graceful error message will notify you if you are not using the correct version of python. 2.6 is required.
+ *Added support for the %current cmd. It will only PM you.
+ *Added some error checking in a few spots, hopefully to give you information about what happened.
+ *Updated the example filters.conf to show the new options
+ *Cleaned up the help replies a bunch.
+ *Fixed the %join/%part commands. They now properly work like in the help.
+ *Added the %disconnect <site> command. 
+ *The quit command now disconnects from all sites and closes all threads.
+ *Cleaned up the threads a bunch. There should now only be 4 threads + messaging processing threads, instead of the many I had before.
+
+3.10.10: Alpha r2:
+ *Added version/date information.
+ *Completely revamped how IRC commands are handled, and finished them! Use %help to learn how to use your new bot.
+ *Fixed a bug where matches would not be made because of case-sensitive 'chanfilter' values. Case does not matter anymore.
+ *Fixed multiple game-breaking bugs that stopped torrents from being downloaded successfully.
+ *Filters will now only match log/cue/logper if the release is in FLAC.
+ *Now handles connecting to multiple sites at the same time, which means:
+ *It is now properly threaded! W00000T!
+ *Many setup options have been moved to credentials. Nickowner is different for every network, so it's added there, as well as which channels to autojoin.
+ *Added a toggle option in setup to disable showing random chatter from each network.
+ *Support for announcements that are multi-line.
+ *Started adding support for broadcasthe.net.
+ *Changes to regex.conf to handle the different ways other networks require authorization
+
+
+3.9.10: Alpha r1 - Original release!
+ 
+ 
+For the future:
+ *Add cross-network channel joins IE %join $network #channel
+ *Add a nick auto-register routine.
+ *Redirect nick-highlights/pms directed at bot to the nickowner
+ *Remove leading zeroes from filters/announcements (example: season 01 episode 01)
+ *Add email support.
+ *Add the ability to send all messages to a certain nick on a network through DCC chat
+ *Add a bot "flood protection" scheme so it can't spam a channel.
+ *Implement RSS feeds
+ *Have the bot reply to VERSION queries.
+ *If the connection drops (internet loss, etc), the bot needs to reconnect when the internet is back.
+ *Implement the ability to toggle filters from the chatroom.
+ *Put in error-checking if the site id is wrong or the username/password to login to the site is wrong
+ *A GUI option.. maybe.. someday.
+ *Add notifications if the bot gets kicked/glined etc.
+ *Add color to the IRC output
+ *Add a filter matching tool.
+ *Implement a %register command to register with ident.
+ *Use the option freepercent to stop downloading if the drive starts getting full.
