@@ -785,7 +785,7 @@ def createCookie(site, cj):
 	req = Request(G.NETWORKS[site]['regex']['loginurl'], http_args)
 	req.add_header("User-Agent", "Opera/9.80 (Windows NT 5.1; U; en) Presto/2.5.22 Version/10.50")
 	if site == "whatcd":
-		req.add_header('Referer', 'https://ssl.what.cd/login.php')
+		req.add_header('Referer', 'https://what.cd/login.php')
 		
 	out('INFO','Logging into %s because a cookie was not previously saved or is outdated.'%site,site=site)
 	handle = None
