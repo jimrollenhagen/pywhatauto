@@ -1,6 +1,10 @@
 Changelog:
 
-8.14.11 Verrsion 1.72
+1.18.13 Version 1.73
+ *Change user agent to fix what.cd http
+ *Require passkey for PTP login
+
+8.14.11 Version 1.72
  *Complete rewrite of the download functions. Much more efficient, download speed increased significantly. Download function is now properly threaded. If anything breaks let me know.
  *Download function know returns more specific error cases.
  *Webserver now runs multithreaded. This speeds up simoultaneous downloads significantly.
