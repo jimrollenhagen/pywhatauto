@@ -745,7 +745,7 @@ def getFile(downloadURL, cj):
 		opener = build_opener(cj)
 	urllib2.install_opener(opener)
 	req = urllib2.Request(downloadURL)
-	req.add_header("User-Agent", "Opera/9.80 (Windows NT 5.1; U; en) Presto/2.5.22 Version/10.50")
+	req.add_header("User-Agent", "python-requests/2.1.0 CPython/2.7.5 Darwin/13.0.0")
 	return urllib2.urlopen(req)
 
 def createCookie(site, cj):
@@ -783,7 +783,7 @@ def createCookie(site, cj):
 	#http_args = urllib.urlencode(dict(username=G.NETWORKS[site]['creds']['username'], password=G.NETWORKS[site]['creds']['password']))
 	
 	req = Request(G.NETWORKS[site]['regex']['loginurl'], http_args)
-	req.add_header("User-Agent", "Opera/9.80 (Windows NT 5.1; U; en) Presto/2.5.22 Version/10.50")
+	req.add_header("User-Agent", "python-requests/2.1.0 CPython/2.7.5 Darwin/13.0.0")
 	if site == "whatcd":
 		req.add_header('Referer', 'https://what.cd/login.php')
 		
