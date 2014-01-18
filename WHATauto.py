@@ -779,6 +779,9 @@ def createCookie(site, cj):
 		httpdict.update(newdict)
 
 	http_args = urllib.urlencode(httpdict)
+
+	if site == 'passthepopcorn':
+		httpdict['passkey'] = G.NETWORKS[site]['creds']['passkey']
 	
 	#http_args = urllib.urlencode(dict(username=G.NETWORKS[site]['creds']['username'], password=G.NETWORKS[site]['creds']['password']))
 	
