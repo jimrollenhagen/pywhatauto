@@ -65,7 +65,7 @@ def main():
 	try:
 		WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup','webserverip'))
 	except Exception:
-		outexception('Exception cought in main(), when starting webserver')
+		outexception('Exception caught in main(), when starting webserver')
 	WEB.setDaemon(True)
 	WEB.start()
 	out('DEBUG','Web thread started.')
@@ -535,10 +535,10 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
 		handle = getFile(downloadURL,cj)
 	except urllib2.HTTPError, e:
 		if int(e.code) in (301,302,303,307):
-			print 'Cought a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+			print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
 			return 'moved'
 		else:
-			print 'Cought another http error. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+			print 'Caught another http error. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
 			return 'httperror'
 	else:
 		return handle
@@ -778,24 +778,24 @@ def createCookie(site, cj):
 			out('ERROR', 'morepostdata variable raised a syntax error %s' %G.NETWORKS[site]['regex']['morepostdata'], site=site)
 		httpdict.update(newdict)
 
-	http_args = urllib.urlencode(httpdict)
-
 	if site == 'passthepopcorn':
 		httpdict['passkey'] = G.NETWORKS[site]['creds']['passkey']
-	
+
+	http_args = urllib.urlencode(httpdict)
+
 	#http_args = urllib.urlencode(dict(username=G.NETWORKS[site]['creds']['username'], password=G.NETWORKS[site]['creds']['password']))
 	
 	req = Request(G.NETWORKS[site]['regex']['loginurl'], http_args)
 	req.add_header("User-Agent", "python-requests/2.1.0 CPython/2.7.5 Darwin/13.0.0")
 	if site == "whatcd":
 		req.add_header('Referer', 'https://what.cd/login.php')
-		
+
 	out('INFO','Logging into %s because a cookie was not previously saved or is outdated.'%site,site=site)
 	handle = None
 	try:
 		handle = urlopen(req)
 	except urllib2.HTTPError, e:
-		print 'Cought a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+		print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
 		#print cj
 		G.LOCK.acquire()
 		cj.save(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
@@ -808,12 +808,25 @@ def createCookie(site, cj):
 		G.LOCK.release()
 		return cj
 	elif handle:
-		#print "----"
-		#print handle.read()
-		#print "----"
-		#print handle.info()
-		out('ERROR','Password seems to be incorrect',site)
-		return False
+		import json
+		result = json.loads(handle.read())
+		if 'Result' in result and result['Result'] == 'Error':
+			if 'Message' in result:
+				out('ERROR', "Result: %s, Message: %s" % (result['Result'],result['Message']), site)
+			else:
+				out('ERROR', "Result: %s " % result['Result'], site)
+		elif 'Result' in result and result['Result'] == 'Ok':
+			G.LOCK.acquire()
+			cj.save(os.path.join(G.SCRIPTDIR,'cookies','%s.cookie' % site), ignore_discard=True, ignore_expires=True)
+			G.LOCK.release()
+			return cj
+		else:
+			#print "----"
+			#print handle.read()
+			#print "----"
+			#print handle.info()
+			out('ERROR','Password seems to be incorrect',site)
+			return False
 	else:
 		out('ERROR','We don\'t have a redirect but still data? How can that happen?',site)
 
@@ -939,8 +952,8 @@ class MyHandler(BaseHTTPRequestHandler):
 											loc = None
 										output = download(id, site, location=loc, name=name, fromweb=True)
 									
-									except Exception:
-										outexception('Error while downloading %s from web, error: %s' %(str(id)), site)
+									except Exception as e:
+										outexception('Error while downloading %s from web, error: %s' %(str(id),str(e)),site)
 	
 									self.send_response(200)
 									self.send_header('Content-type','text/html')
