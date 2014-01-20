@@ -811,18 +811,19 @@ def createCookie(site, cj):
 		import json
 		try:
 			result = json.loads(handle.read())
-			if 'Result' in result and result['Result'] == 'Error':
-				if 'Message' in result:
+		except ValueError:
+			out('ERROR', 'Invalid JSON returned on login attempt', site)
+			return
+		if 'Result' in result and result['Result'] == 'Error':
+			if 'Message' in result:
 					out('ERROR', "Result: %s, Message: %s" % (result['Result'],result['Message']), site)
-				else:
+			else:
 					out('ERROR', "Result: %s " % result['Result'], site)
-			elif 'Result' in result and result['Result'] == 'Ok':
+		elif 'Result' in result and result['Result'] == 'Ok':
 				G.LOCK.acquire()
 				cj.save(os.path.join(G.SCRIPTDIR,'cookies','%s.cookie' % site), ignore_discard=True, ignore_expires=True)
 				G.LOCK.release()
 				return cj
-		except ValueError:
-			out('ERROR', 'Invalid JSON returned on login attempt', site)
 	elif handle:
 			#print "----"
 			#print handle.read()
