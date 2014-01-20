@@ -809,7 +809,6 @@ def createCookie(site, cj):
 		return cj
 	elif handle and 'loginjson' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginjson'] == '1':
 		import json
-		print "yeah we're here"
 		try:
 			result = json.loads(handle.read())
 			if 'Result' in result and result['Result'] == 'Error':
