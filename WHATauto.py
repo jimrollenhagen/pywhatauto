@@ -807,20 +807,24 @@ def createCookie(site, cj):
 		cj.save(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
 		G.LOCK.release()
 		return cj
-	elif handle:
+	elif handle and 'loginjson' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginjson'] == '1':
 		import json
-		result = json.loads(handle.read())
-		if 'Result' in result and result['Result'] == 'Error':
-			if 'Message' in result:
-				out('ERROR', "Result: %s, Message: %s" % (result['Result'],result['Message']), site)
-			else:
-				out('ERROR', "Result: %s " % result['Result'], site)
-		elif 'Result' in result and result['Result'] == 'Ok':
-			G.LOCK.acquire()
-			cj.save(os.path.join(G.SCRIPTDIR,'cookies','%s.cookie' % site), ignore_discard=True, ignore_expires=True)
-			G.LOCK.release()
-			return cj
-		else:
+		print "yeah we're here"
+		try:
+			result = json.loads(handle.read())
+			if 'Result' in result and result['Result'] == 'Error':
+				if 'Message' in result:
+					out('ERROR', "Result: %s, Message: %s" % (result['Result'],result['Message']), site)
+				else:
+					out('ERROR', "Result: %s " % result['Result'], site)
+			elif 'Result' in result and result['Result'] == 'Ok':
+				G.LOCK.acquire()
+				cj.save(os.path.join(G.SCRIPTDIR,'cookies','%s.cookie' % site), ignore_discard=True, ignore_expires=True)
+				G.LOCK.release()
+				return cj
+		except ValueError:
+			out('ERROR', 'Invalid JSON returned on login attempt', site)
+	elif handle:
 			#print "----"
 			#print handle.read()
 			#print "----"
