@@ -186,8 +186,8 @@ def loadConfigs():
         try:
             if CUSTOM.has_option('aliases', configs):
                 new = CUSTOM.get('aliases', configs)
-                existing = G.FROMALIAS[new]
-                if new in G.FROMALIAS.keys():
+                existing = G.FROMALIAS.get('new')
+                if existing is not None:
                     dupe_message = ('The alias %s is defined for two sites, '
                                     '%s and %s.' % (new, existing, configs))
                     raise DuplicateError(dupe_message)
@@ -195,8 +195,8 @@ def loadConfigs():
                 G.TOALIAS[configs] = new
             elif SETUP.has_option('aliases', configs):
                 new = SETUP.get('aliases', configs)
-                existing = G.FROMALIAS[new]
-                if new in G.FROMALIAS.keys():
+                existing = G.FROMALIAS.get('new')
+                if existing is not None:
                     dupe_message = ('The alias %s is defined for two sites, '
                                     '%s and %s.' % (new, existing, configs))
                 G.FROMALIAS[new] = configs
@@ -596,9 +596,6 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
                     'credentials.conf')
             out('ERROR', _msg, site)
             return 'passkey'
-
-    # just in case
-    G.LOCK.release()
 
     # create the downloadURL based on downloadType
     downloadURL = G.NETWORKS[site]['regex']['downloadurl']
@@ -1135,14 +1132,14 @@ def sendNotify(site, announce, filter, filename):
 class WebServer(threading.Thread):
     def __init__(self, loadloc, pw, port, ip=''):
         global webpass
-        threading.Thread.__init__(self)
+        super(WebServer, self).__init__()
+
         self.loadloc = loadloc
         try:
             self.port = int(port)
         except ValueError:
             out('ERROR', 'Invalid web UI port. Using default of 8999')
             self.port = 8999
-        self.port = port
         self.ip = ip
         if pw != '':
             webpass = pw
@@ -1170,13 +1167,14 @@ class ThreadedHTTPServer(SocketServer.ThreadingMixIn,
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
-        super(MyHandler, self).__init__(self, *args, **kwargs)
         self.routes = {
             'dl.pywa': self.download,
         }
+        BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def parse_path(self):
-        parts = self.path.split('?')
+        path = self.path[1:]
+        parts = path.split('?')
         path = parts[0]
         args = {}
         if len(parts) > 1:
@@ -1192,20 +1190,24 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         return path, args
 
     def route(self, path):
+        out('DEBUG', 'getting path %s' % path)
         return self.routes.get(path)
 
     def download(self, args):
         id_ = args.get('id')
         site = args.get('site', '').lower()
-        password = args.get('password')
+        password = args.get('pass')
         name = args.get('name')
 
         if not id_:
             self.send_error(400, 'Torrent ID missing.')
+            return
         if not site or site not in G.FROMALIAS:
             self.send_error(400, 'Unknown site')
+            return
         if password is None or password != webpass:
             self.send_error(403, 'Incorrect password')
+            return
 
         site = G.FROMALIAS[site]
 
@@ -1217,7 +1219,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 loc = SETUP.get('setup', 'buttonwatch')
             else:
                 loc = None
-            output = download(id, site, location=loc, name=name, fromweb=True)
+            output = download(id_, site, location=loc, name=name, fromweb=True)
 
         except Exception as e:
             _msg = 'Error while downloading %s from web, error: %s'
@@ -1244,6 +1246,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             handler_func = self.route(path)
             if handler_func is None:
                 self.send_error(404)
+                return
             handler_func(args)
         except Exception as e:
             outexception('web request handling error: %s' % e)
