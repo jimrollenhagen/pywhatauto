@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-#python 2.5 support for the "with" command
 from __future__ import with_statement
 from __future__ import division
 
@@ -8,24 +7,38 @@ from __future__ import division
 print('Starting main program.')
 print('pyWHATauto: johnnyfive + blubba. WHATauto original creator: mlapaglia.')
 
+
+import BaseHTTPServer
+import ConfigParser
+import cookielib
+import datetime
+import math
+import os
+import random
+import re
+import socket
+import SocketServer
+import sqlite3
 import sys
+import thread
+import threading
+import time
+import traceback
+import urllib
+import urllib2
+
+import db
 import globals as G
-import irclib as irclib
-#import handlePubMSG as handlePubMSG
+import irclib
 from torrentparser import torrentparser
 
+
 VERSION = 'v1.73'
+USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) '
+              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 '
+              'Safari/537.36')
+print('You are running pyWHATauto version %s\n' % VERSION)
 
-print('You are running pyWHATauto version %s\n'%VERSION)
-
-#from time import strftime, strptime
-from datetime import datetime, timedelta
-
-from threading import Thread
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from SocketServer import ThreadingMixIn
-
-import db, time, os, re, ConfigParser, thread, urllib, urllib2, random, cookielib, socket, math, traceback, sqlite3, threading#, WHATparse as WP, #htmllib, 
 
 def main():
     global irc, log, log2, lastFSCheck, last, SETUP
@@ -35,8 +48,8 @@ def main():
     os.chdir(G.SCRIPTDIR)
     loadConfigs()
     if G.LOG:
-        if not os.path.isdir(os.path.join(G.SCRIPTDIR,'logs')):
-            os.makedirs(os.path.join(G.SCRIPTDIR,'logs'))
+        if not os.path.isdir(os.path.join(G.SCRIPTDIR, 'logs')):
+            os.makedirs(os.path.join(G.SCRIPTDIR, 'logs'))
     global WIN32FILEE
     WIN32FILEE = False
     if os.name == 'nt':
@@ -46,41 +59,48 @@ def main():
                 pass
             WIN32FILEE = True
         except ImportError:
-            out('ERROR','The module win32file is not installed. Please download it from http://sourceforge.net/projects/pywin32/files/')
-            out('ERROR','The program will continue to function normally except where win32file is needed.')
+            out('ERROR', 'The module win32file is not installed. '
+                'Please download it from '
+                'http://sourceforge.net/projects/pywin32/files/')
+            out('ERROR', 'The program will continue to function normally '
+                'except where win32file is needed.')
             WIN32FILEE = False
-    out('DEBUG','Starting report thread.')        
-    thread.start_new_thread(writeReport,(20,))
-    out('DEBUG','Report thread started.')
-    
-    out('DEBUG','Starting DB thread.')  
-    #Create the DB object
+    out('DEBUG', 'Starting report thread.')
+    thread.start_new_thread(writeReport, (20,))
+    out('DEBUG', 'Report thread started.')
+
+    out('DEBUG', 'Starting DB thread.')
+    # Create the DB object
     DB = db.sqlDB(G.SCRIPTDIR, G.Q)
     DB.setDaemon(True)
     DB.start()
-    out('DEBUG','DB thread started.')
-    
-    out('DEBUG','Starting web thread.')  
-    #Create the web object
+    out('DEBUG', 'DB thread started.')
+
+    out('DEBUG', 'Starting web thread.')
+    # Create the web object
     try:
-        WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup','webserverip'))
+        WEB = WebServer(G.SCRIPTDIR,
+                        SETUP.get('setup', 'password'),
+                        SETUP.get('setup', 'port'),
+                        SETUP.get('setup', 'webserverip'))
     except Exception:
         outexception('Exception caught in main(), when starting webserver')
     WEB.setDaemon(True)
     WEB.start()
-    out('DEBUG','Web thread started.')
+    out('DEBUG', 'Web thread started.')
     try:
         irc = irclib.IRC()
-        out('INFO','Main program loaded. Starting bots.')
-        
+        out('INFO', 'Main program loaded. Starting bots.')
+
         if G.TESTING:
             startBots()
         else:
-            thread.start_new_thread(startBots,(tuple()))
+            thread.start_new_thread(startBots, tuple())
     except Exception:
         outexception('General exception in main():')
-    Prompt(.5) 
-        
+    Prompt(.5)
+
+
 def Prompt(n):
     global log, log2
     while 1:
@@ -92,104 +112,114 @@ def Prompt(n):
                 log2.close()
             sys.exit(1)
 
+
 class DuplicateError(Exception):
     def __init__(self, value):
         self.value = value
+
     def __str__(self):
         return repr(self.value)
 
+
 def loadConfigs():
     global SETUP
-    #global REGEX, SETUP, CRED, FILTERS, CUSTOM, ALIASES#, REPORTS , NETWORKS
-    #these get replaced with:
-    # G.NETWORKS[sitename]['regex'], ['setup'], ['creds'], ['filters'], G.REPORTS   G.ALIAS
-    if os.name == 'nt' and os.path.exists(os.path.join(G.SCRIPTDIR,'nt')):
+
+    if os.name == 'nt' and os.path.exists(os.path.join(G.SCRIPTDIR, 'nt')):
         print('Loading nt settings')
         SETUP = ConfigParser.RawConfigParser()
-        SETUP.readfp(open(os.path.join(G.SCRIPTDIR,'nt','setup.conf')))
-        
+        SETUP.readfp(open(os.path.join(G.SCRIPTDIR, 'nt', 'setup.conf')))
+
         CRED = ConfigParser.RawConfigParser()
-        CRED.readfp(open(os.path.join(G.SCRIPTDIR,'nt','credentials.conf')))
-        
+        CRED.readfp(open(os.path.join(G.SCRIPTDIR, 'nt', 'credentials.conf')))
+
         CUSTOM = ConfigParser.RawConfigParser()
-        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR,'nt','custom.conf')))
-        
+        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR, 'nt', 'custom.conf')))
+
         FILTERS = ConfigParser.RawConfigParser()
-        FILTERS.readfp(open(os.path.join(G.SCRIPTDIR,'nt','filters.conf')))
-    
+        FILTERS.readfp(open(os.path.join(G.SCRIPTDIR, 'nt', 'filters.conf')))
+
     else:
         SETUP = ConfigParser.RawConfigParser()
-        SETUP.readfp(open(os.path.join(G.SCRIPTDIR,'setup.conf')))
-        
+        SETUP.readfp(open(os.path.join(G.SCRIPTDIR, 'setup.conf')))
+
         CRED = ConfigParser.RawConfigParser()
-        CRED.readfp(open(os.path.join(G.SCRIPTDIR,'credentials.conf')))
-        
+        CRED.readfp(open(os.path.join(G.SCRIPTDIR, 'credentials.conf')))
+
         CUSTOM = ConfigParser.RawConfigParser()
-        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR,'custom.conf')))
-        
+        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR, 'custom.conf')))
+
         FILTERS = ConfigParser.RawConfigParser()
         try:
-            FILTERS.readfp(open(os.path.join(G.SCRIPTDIR,'filters.conf')))
-        except ConfigParser.ParsingError, e:
-            out('ERROR','There is a problem with your filters.conf. If using newlines, please make sure that each new line is tabbed in once. Error: %s'%e)
-            raw_input("This program will now exit (okay): ")
+            FILTERS.readfp(open(os.path.join(G.SCRIPTDIR, 'filters.conf')))
+        except ConfigParser.ParsingError as e:
+            out('ERROR', 'There is a problem with your filters.conf. '
+                'If using newlines, please make sure that each new line is '
+                'tabbed in once. Error: %s' % e)
+            raw_input('This program will now exit (okay):')
             quit()
-        
-    REPORT = ConfigParser.RawConfigParser()
-    REPORT.readfp(open(os.path.join(G.SCRIPTDIR,'reports.conf')))
-    
-    REGEX = ConfigParser.RawConfigParser()
-    REGEX.readfp(open(os.path.join(G.SCRIPTDIR,'regex.conf')))
 
-    
+    REPORT = ConfigParser.RawConfigParser()
+    REPORT.readfp(open(os.path.join(G.SCRIPTDIR, 'reports.conf')))
+
+    REGEX = ConfigParser.RawConfigParser()
+    REGEX.readfp(open(os.path.join(G.SCRIPTDIR, 'regex.conf')))
+
     if SETUP.has_option('debug', 'testing'):
-        if SETUP.get('debug', 'testing').rstrip().lstrip() == '1':
+        if SETUP.get('debug', 'testing').strip() == '1':
             G.TESTING = True
-            
-    if SETUP.has_option('setup','log'):
-        if SETUP.get('setup','log').rstrip().lstrip() == '1':
+
+    if SETUP.has_option('setup', 'log'):
+        if SETUP.get('setup', 'log').strip() == '1':
             G.LOG = True
-    
-    #load the reports. Since we re-write the entire file every time, we have to load them all.
+
+    # Load the reports.
+    # Since we re-write the entire file every time, we have to load them all.
     for site in REPORT.sections():
         G.REPORTS[site] = dict()
         G.REPORTS[site]['seen'] = int(REPORT.get(site, 'seen'))
         G.REPORTS[site]['downloaded'] = int(REPORT.get(site, 'downloaded'))
-        
-    #alias stuff:
+
+    # alias stuff
     G.FROMALIAS = dict()
     G.TOALIAS = dict()
     for configs in CRED.sections():
         try:
             if CUSTOM.has_option('aliases', configs):
-                if CUSTOM.get('aliases',configs) in G.FROMALIAS.keys():
-                    raise DuplicateError('The alias %s is defined for two sites, %s and %s' %(CUSTOM.get('aliases',configs),G.FROMALIAS[CUSTOM.get('aliases',configs)],configs))
-                G.FROMALIAS[CUSTOM.get('aliases',configs)] = configs
-                G.TOALIAS[configs] = CUSTOM.get('aliases',configs)    
+                new = CUSTOM.get('aliases', configs)
+                existing = G.FROMALIAS[new]
+                if new in G.FROMALIAS.keys():
+                    dupe_message = ('The alias %s is defined for two sites, '
+                                    '%s and %s.' % (new, existing, configs))
+                    raise DuplicateError(dupe_message)
+                G.FROMALIAS[new] = configs
+                G.TOALIAS[configs] = new
             elif SETUP.has_option('aliases', configs):
-                if SETUP.get('aliases',configs) in G.FROMALIAS.keys():
-                    raise DuplicateError('The alias %s is defined for two sites, %s and %s' %(SETUP.get('aliases',configs),G.FROMALIAS[SETUP.get('aliases',configs)],configs))
-                G.FROMALIAS[SETUP.get('aliases',configs)] = configs
-                G.TOALIAS[configs] = SETUP.get('aliases',configs)
+                new = SETUP.get('aliases', configs)
+                existing = G.FROMALIAS[new]
+                if new in G.FROMALIAS.keys():
+                    dupe_message = ('The alias %s is defined for two sites, '
+                                    '%s and %s.' % (new, existing, configs))
+                G.FROMALIAS[new] = configs
+                G.TOALIAS[configs] = new
             else:
                 G.TOALIAS[configs] = configs
-            if not configs in G.FROMALIAS.keys():
+            if configs not in G.FROMALIAS.keys():
                 G.FROMALIAS[configs] = configs
-        except DuplicateError, e:
+        except DuplicateError as e:
             if log:
-                out('ERROR',e)
+                out('ERROR', e)
             else:
                 print(e)
             G.EXIT = True
             sys.exit()
-        
-        if CUSTOM.has_option('sites',configs):
-            G.TOSTART[configs]= CUSTOM.get('sites',configs)
-        elif SETUP.has_option('sites',configs):
-            G.TOSTART[configs]= SETUP.get('sites',configs)
+
+        if CUSTOM.has_option('sites', configs):
+            G.TOSTART[configs] = CUSTOM.get('sites', configs)
+        elif SETUP.has_option('sites', configs):
+            G.TOSTART[configs] = SETUP.get('sites', configs)
         else:
-            G.TOSTART[configs]= "0"
-    
+            G.TOSTART[configs] = '0'
+
     G.ALIASLENGTH = 0
     longest = ''
     for val in G.TOALIAS.itervalues():
@@ -197,41 +227,44 @@ def loadConfigs():
             G.ALIASLENGTH = len(val)
             longest = val
     if log:
-        out('DEBUG','Longest alias is %s (%s) with length %d'%(longest,G.FROMALIAS[longest],G.ALIASLENGTH))
+        out('DEBUG', 'Longest alias is %s (%s) with length %d' % (
+            longest,
+            G.FROMALIAS[longest],
+            G.ALIASLENGTH))
     else:
-        print ('Longest alias is %s (%s) with length %d'%(longest,G.FROMALIAS[longest],G.ALIASLENGTH))
-    
-    if REGEX.has_option('version','version'):
-        G.REGVERSION = int(REGEX.get('version','version'))
-    
+        print('Longest alias is %s (%s) with length %d' % (
+              longest,
+              G.FROMALIAS[longest],
+              G.ALIASLENGTH))
+
+    if REGEX.has_option('version', 'version'):
+        G.REGVERSION = int(REGEX.get('version', 'version'))
+
     G.NETWORKS = dict()
-    
-    for configs in CRED.sections(): #for network in credentials.conf
-        #for key, value in CRED.items(configs):
-        #if the REPORTS.conf is missing this network, add it!
-        if not G.REPORTS.has_key(configs):
-            G.REPORTS[configs] = dict()
-            G.REPORTS[configs]['seen'] = 0
-            G.REPORTS[configs]['downloaded'] = 0
-        
-        #add the credentials for each network key
+
+    for configs in CRED.sections():  # for network in credentials.conf
+        # if the REPORTS.conf is missing this network, add it!
+        if configs not in G.REPORTS:
+            G.REPORTS[configs] = {'seen': 0, 'downloaded': 0}
+
+        # add the credentials for each network key
         G.NETWORKS[configs] = dict()
         G.NETWORKS[configs]['creds'] = dict()
         for key, value in CRED.items(configs):
             G.NETWORKS[configs]['creds'][key] = value
-        
+
         #add the regex for each network
         G.NETWORKS[configs]['regex'] = dict()
-        
+
         if REGEX.has_section(configs):
             for key, value in REGEX.items(configs):
                 G.NETWORKS[configs]['regex'][key] = value
-            
+
         if CUSTOM.has_section(configs):
             for key, value in CUSTOM.items(configs):
                 G.NETWORKS[configs]['regex'][key] = value
-        
-        #add the setup to each network (they will all have the same info)        
+
+        # add the setup to each network (they will all have the same info)
         G.NETWORKS[configs]['setup'] = dict()
         for key, value in SETUP.items('setup'):
             G.NETWORKS[configs]['setup'][key] = value
@@ -239,154 +272,191 @@ def loadConfigs():
         G.NETWORKS[configs]['notif'] = dict()
         for key, value in SETUP.items('notification'):
             G.NETWORKS[configs]['notif'][key] = value
-        
-        #add aliases
+
+        # add aliases
         G.NETWORKS[configs]['fromalias'] = dict()
         for key, value in G.FROMALIAS.iteritems():
             G.NETWORKS[configs]['fromalias'][key] = value
-        
+
         G.NETWORKS[configs]['toalias'] = dict()
         for key, value in G.TOALIAS.iteritems():
             G.NETWORKS[configs]['toalias'][key] = value
-        
-        #add filters the networks they belong to
+
+        # add filters the networks they belong to
         G.NETWORKS[configs]['filters'] = dict()
         for f in FILTERS.sections():
             if FILTERS.get(f, 'site') == configs:
                 G.NETWORKS[configs]['filters'][f] = dict()
                 for key, value in FILTERS.items(f):
                     G.NETWORKS[configs]['filters'][f][key] = value
-                #load the filter state into the filters dictionary
+                # load the filter state into the filters dictionary
                 G.FILTERS[f.lower()] = FILTERS.get(f, 'active')
-                #if the filter has been manually toggled, load that value instead
+                # if the filter has been manually toggled,
+                # load that value instead
                 if f.lower() in G.FILTERS_CHANGED:
-                    G.NETWORKS[configs]['filters'][f]['active'] = G.FILTERS_CHANGED[f.lower()]                       
-    
+                    _new_val = G.FILTERS_CHANGED[f.lower()]
+                    G.NETWORKS[configs]['filters'][f]['active'] = _new_val
+
+
 def reloadConfigs():
     G.LOCK.acquire()
     loadConfigs()
     for bot in G.RUNNING.itervalues():
         bot.saveNewConfigs(G.NETWORKS[bot.getBotName()])
     G.LOCK.release()
-    out('INFO','Configs re-loaded.')
+    out('INFO', 'Configs re-loaded.')
 
-def outexception(msg=False,site=False):
+
+def outexception(msg=False, site=False):
     exc = traceback.format_exc()
     if msg:
         out('ERROR', msg, site)
     for excline in exc.splitlines():
         out('ERROR', excline, site)
 
+
 def out(level, msg, site=False):
     global last
-    levels = ['error','warning','msg','info','cmd','filter','debug']
-    #getting color output ready for when I decide to implement it
-    colors = {'error':'%s','warning':'%s','msg':'%s','info':'%s','cmd':'%s','filter':'%s','debug':'%s'}
-    if levels.index(level.lower()) <= levels.index(SETUP.get('setup','verbosity').lower()):
+    levels = ['error', 'warning', 'msg', 'info', 'cmd', 'filter', 'debug']
+    # getting color output ready for when I decide to implement it
+    colors = {'error': '%s',
+              'warning': '%s',
+              'msg': '%s',
+              'info': '%s',
+              'cmd': '%s',
+              'filter': '%s',
+              'debug': '%s'}
+
+    verbosity = SETUP.get('setup', 'verbosity').lower()
+    if levels.index(level.lower()) <= levels.index(verbosity):
+        _now = datetime.datetime.now()
         if site:
-            if site != last and last != False:
-                #print('')
+            if site != last and last is not False:
                 if G.LOG:
                     logging('')
-            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),7,level,G.ALIASLENGTH,G.TOALIAS[site], msg)
-            print(colors[level.lower()]%msg)
+            msg = '%s %-*s %-*s %s' % (_now.strftime("%m/%d-%H:%M:%S"),
+                                       7,
+                                       level,
+                                       G.ALIASLENGTH,
+                                       G.TOALIAS[site],
+                                       msg)
+            print(colors[level.lower()] % msg)
             last = site
         else:
-            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),7,level,G.ALIASLENGTH,'', msg)
-            #msg='%s-%s: %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),level, msg)
+            msg = '%s %-*s %-*s %s' % (_now.strftime("%m/%d-%H:%M:%S"),
+                                       7,
+                                       level,
+                                       G.ALIASLENGTH,
+                                       '',
+                                       msg)
             print(msg)
         if G.LOG:
             logging(msg)
 
+
 def logging(msg):
     global log, log2, logdate
-    #Create the log file
-    logdir = os.path.join(G.SCRIPTDIR,'logs')
+    # Create the log file
+    logdir = os.path.join(G.SCRIPTDIR, 'logs')
+    _now = datetime.datetime.now()
     if not log:
-        logdate = datetime.now().strftime("%m.%d.%Y-%H.%M")
-        log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')
-        log2 = open(os.path.join(logdir,'pyWALog.txt'),'w')
-        #x = datetime.strptime(logdate,"%m.%d.%Y-%H.%M")
-    if datetime.now() - datetime.strptime(logdate,"%m.%d.%Y-%H.%M") > timedelta(hours=24):
+        logdate = _now.strftime("%m.%d.%Y-%H.%M")
+        log = open(os.path.join(logdir, 'pyWALog-' + logdate + '.txt'), 'w')
+        log2 = open(os.path.join(logdir, 'pyWALog.txt'), 'w')
+
+    difference = _now - datetime.datetime.strptime(logdate, "%m.%d.%Y-%H.%M")
+    if difference > datetime.timedelta(hours=24):
         log.close()
-        logdate = datetime.now().strftime("%m.%d.%Y-%H.%M")
-        log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')    
-    log.write(msg+"\n")
-    log.flush() 
-    log2.write(msg+"\n")
-    log2.flush() 
+        logdate = _now.strftime("%m.%d.%Y-%H.%M")
+        filename = os.path.join(logdir, 'pyWALog-' + logdate + '.txt')
+        log = open(filename, 'w')
+    log.write(msg + '\n')
+    log.flush()
+    log2.write(msg + '\n')
+    log2.flush()
+
 
 def startBots():
+    global irc
     try:
         for key, value in G.TOSTART.items():
-            if value == "1":
+            if value == '1':
                 establishBot(key)
         irc.process_forever()
     except Exception:
         outexception('General exception caught, startBots()')
         G.EXIT = True
-        
+
+
 def establishBot(sitename):
-    '''Does some preliminary checks, creates a new autoBOT instance and connects it to irc'''
-    #Need to check if there is sufficient regexp and credentials present
-    
+    '''Does some preliminary checks.
+    Creates a new autoBOT instance and connects it to irc.
+    '''
+
+    # Need to check if there is sufficient regexp and credentials present
+
     if sitename in G.RUNNING.keys():
-        out('INFO','The autoBOT for this site is already running')
+        out('INFO', 'The autoBOT for this site is already running')
         return 'The autoBOT for this site is already running'
-    
-    re = G.NETWORKS[sitename]['regex']
-    if not ('server' in re and re['server'] != '' and 'port' in re and re['port'] != '' and 'announcechannel' in re and re['announcechannel'] != ''):
-        out('INFO','This site does not have an irc announce channel.',site=sitename)
-        return 'Cannot connect to irc network: this site does not have an irc announce channel.'
+
+    _re = G.NETWORKS[sitename]['regex']
+    server = _re.get('server', '')
+    port = _re.get('port', '')
+    announcechannel = _re.get('announcechannel', '')
+    if not (server != '' and port != '' and announcechannel != ''):
+        _msg = 'This site does not have an irc announce channel.'
+        out('INFO', _msg, site=sitename)
+        return 'Cannot connect to irc network: %s' % _msg
     cr = G.NETWORKS[sitename]['creds']
-    if not ('botnick' in cr and cr['botnick'] != '' and 'nickowner' in cr and 'nickservpass' in cr and cr['nickservpass'] != ''):
-        out('ERROR','The credentials given are not sufficient to connect to the irc server',site=sitename)
-        return 'ERROR: The credentials given are not sufficient to connect to the irc server'
-    
+    botnick = cr.get('botnick', '')
+    nickservpass = cr.get('nickservpass', '')
+    if not (botnick != '' and 'nickowner' in cr and nickservpass != ''):
+        _msg = ('The credentials given are not sufficient to connect to the '
+                'irc server.')
+        out('ERROR', _msg, site=sitename)
+        return 'ERROR: %s' % _msg
+
     shared = False
 
-    if 'tempbotnick' in cr:
-        botnick = cr['tempbotnick']
-    else:
-        botnick = cr['botnick']
-    
-    if 'ircpassword' in cr:
-        ircpw = cr['ircpassword']
-    else:
-        ircpw = None
+    # tempbotnick overrides botnick
+    botnick = cr.get('tempbotnick', botnick)
+    ircpw = cr.get('ircpassword')
 
     for key in G.RUNNING.keys():
         sre = G.NETWORKS[key]['regex']
         scr = G.NETWORKS[key]['creds']
-        if sre['server'].lower() == re['server'].lower():
-            out('DEBUG','Matching servers found between %s and %s (old), %s' %(sitename,key,re['server']),site=sitename)
-            if 'tempbotnick' in scr:
-                sbotnick = scr['tempbotnick']
-            else:
-                sbotnick = scr['botnick']
-            if 'ircpassword' in cr:
-                sircpw = cr['ircpassword']
-            else:
-                sircpw = None
+        if sre['server'].lower() == _re['server'].lower():
+            out('DEBUG',
+                'Matching servers found between %s and %s (old), %s' % (
+                    sitename,
+                    key, _re['server']),
+                site=sitename)
+            sbotnick = scr.get('tempbotnick', scr['botnick'])
+            sircpw = cr.get('ircpassword')
             if botnick.lower() == sbotnick.lower() and ircpw == sircpw:
-                out('DEBUG','servers and nicks are matching the full way! Piggybacking...',site=sitename)
+                _msg = ('servers and nicks are matching the full way! '
+                        'Piggybacking...')
+                out('DEBUG', _msg, site=sitename)
                 shared = key
                 break
-        
+
     G.LOCK.acquire()
-    G.RUNNING[sitename] = autoBOT(sitename,G.NETWORKS[sitename])
+    G.RUNNING[sitename] = autoBOT(sitename, G.NETWORKS[sitename])
     G.LOCK.release()
-    
+
     if shared:
         G.RUNNING[sitename].setSharedConnection(G.RUNNING[shared])
-        return 'Connecting to %s by piggybacking on %s\'s connection' %(sitename,shared)
+        return 'Connecting to %s by piggybacking on %s\'s connection' % (
+            sitename,
+            shared)
     else:
         G.RUNNING[sitename].connect()
-        return 'Connecting to %s' %(sitename)
-    
+        return 'Connecting to %s' % sitename
+
+
 def writeReport(n):
     last = 0
-    while 1:
+    while True:
         now = 0
         G.LOCK.acquire()
         for key in G.REPORTS.itervalues():
@@ -395,17 +465,20 @@ def writeReport(n):
             config = ConfigParser.RawConfigParser()
             for section in sorted(G.REPORTS.iterkeys()):
                 config.add_section(section)
-                config.set(section,'seen',G.REPORTS[section]['seen'])
-                config.set(section,'downloaded',G.REPORTS[section]['downloaded'])
-            #release the lock before we waste time writing the config.
+                config.set(section, 'seen', G.REPORTS[section]['seen'])
+                config.set(section,
+                           'downloaded',
+                           G.REPORTS[section]['downloaded'])
+
+            # release the lock before we waste time writing the config.
             G.LOCK.release()
             # Writing our configuration file to 'reports.conf'
             try:
                 with open('reports.conf', 'wb') as configfile:
-                        config.write(configfile)
+                    config.write(configfile)
                 last = now
-            except IOError, e:
-                out('ERROR',e)          
+            except IOError as e:
+                out('ERROR', e)
         else:
             G.LOCK.release()
         time.sleep(n)
@@ -413,56 +486,55 @@ def writeReport(n):
 
 def getDriveInfo(drive):
     if os.name == 'nt' and WIN32FILEE:
-        def get_drivestats(drive=None):
-            '''
-            returns total_space, free_space and drive letter
-            '''
-            drive = drive.replace(':\\', '')
-            import win32file
-            sectPerCluster, bytesPerSector, freeClusters, totalClusters = win32file.GetDiskFreeSpace(drive + ":\\")
-            total_space = totalClusters*sectPerCluster*bytesPerSector
-            free_space = freeClusters*sectPerCluster*bytesPerSector
-            return total_space, free_space
-        total_space, free_space = get_drivestats(drive)
-        return free_space, float(free_space)/float(total_space)
+        import win32file
+        drive = drive.replace(':\\', '')
+        drive_info = win32file.GetDiskFreeSpace(drive + ":\\")
+        sections, bytes_per, free_clusters, total_clusters = drive_info
+        total_space = total_clusters * sections * bytes_per
+        free_space = free_clusters * sections * bytes_per
+        return free_space, float(free_space) / float(total_space)
+
     elif os.name == 'posix':
-        if SETUP.has_option('setup','limit') and SETUP.get('setup','limit').lstrip().rstrip() != '' and SETUP.get('setup','limit').lstrip().rstrip() != '0':
-            import subprocess, shlex
-            args = shlex.split('du -s --bytes %s'%drive)
-            du = subprocess.Popen(args,stdout=subprocess.PIPE)
-            dureturn = du.communicate()[0]
-            m = re.search('(\d+).*',dureturn)
-            used = float(m.group(1)) / (1024 * 1024 * 1024)
-            free = float(SETUP.get('setup','limit'))-used
-            return free, free / float(SETUP.get('setup','limit'))
+        if SETUP.has_option('setup', 'limit'):
+            limit = SETUP.get('setup', 'limit').strip()
         else:
-            out('ERROR','Unknown filesystem as it seems...')
-            return 1.0, 1.0
-            #try:
-                #s = os.statvfs(drive) 
-                #return (float(s.f_bavail)*float(s.f_bsize))/1024/1024/1024, (float(s.f_bavail)/float(s.f_blocks))
-            #except OSError, e:
-                #print(e)
-    else:
-        return 1.00, 1.00
+            limit = ''
+        if limit not in ('', '0'):
+            import shlex
+            import subprocess
+            args = shlex.split('du -s --bytes %s' % drive)
+            du = subprocess.Popen(args, stdout=subprocess.PIPE)
+            dureturn = du.communicate()[0]
+            m = re.search('(\d+).*', dureturn)
+            used = float(m.group(1)) / (1024 * 1024 * 1024)
+            free = float(limit) - used
+            return free, free / float(limit)
+        else:
+            out('ERROR', 'Unknown filesystem as it seems...')
+
+    return 1.00, 1.00
+
 
 def freeSpaceOK():
     global lastFSCheck
     drive = SETUP.get('setup', 'drive')
     limit = SETUP.get('setup', 'freepercent')
-    if lastFSCheck == False:
-        lastFSCheck = datetime.now()
-    elif datetime.now()-lastFSCheck > timedelta(seconds=900):
-        #if we haven't run this check in the last 15 minutes, then run it, otherwise it's too soon!
+    _now = datetime.datetime.now()
+    if not lastFSCheck:
+        lastFSCheck = _now
+    elif _now - lastFSCheck > datetime.timedelta(seconds=900):
+        # if we haven't run this check in the last 15 minutes,
+        # then run it, otherwise it's too soon!
         free, percent = getDriveInfo(drive)
-        out('DEBUG','Free HD space: %s' %str(free))
-        if percent > limit: #if we are still within the limit
+        out('DEBUG', 'Free HD space: %s' % free)
+        if percent > limit:  # if we are still within the limit
             return True
         else:
             return False
-    else: #if we've already checked within the last 15 minutes
+    else:  # if we've already checked within the last 15 minutes
         return True
-    
+
+
 def dlCookie(downloadID, site, cj, target, network=False, name=''):
     '''download using login/cookie technique.
     Returns 'preset' if a presetcookie is missing or malformatted,
@@ -475,34 +547,41 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
     '''
     #see if there is a cookie already created.
     G.LOCK.acquire()
-    
+
     if 'downloadtype' in G.NETWORKS[site]['regex']:
         downloadType = G.NETWORKS[site]['regex']['downloadtype']
     else:
-        out('ERROR','Download type is not set in regex.conf for %s' %site, site)
+        out('ERROR',
+            'Download type is not set in regex.conf for %s' % site,
+            site)
         G.LOCK.release()
         return 'downloadtype'
-    
+
     if downloadType != '5':
-        if not os.path.isfile(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie')):
+        cookie_file = os.path.join(G.SCRIPTDIR, 'cookies', '%s.cookie' % site)
+        if not os.path.isfile(cookie_file):
             G.LOCK.release()
-            #check to make sure this isn't a site that needs a preset cookie.
-            if 'presetcookie' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['presetcookie'] == '1':
-                out('ERROR','This tracker requires you to manually create a cookie file before you can download.',site)
+            # check to make sure this isn't a site that needs a preset cookie.
+            if G.NETWORKS[site]['regex'].get('presetcookie') == '1':
+                _msg = ('This tracker requires you to manually create a '
+                        'cookie file before you can download.')
+                out('ERROR', _msg, site)
                 return 'preset'
             else:
-                #if not, log in and create one
+                # if not, log in and create one
                 cj = createCookie(site, cj)
                 if not cj:
                     return 'password'
         else:
-            #load the cookie since it exists already
+            # load the cookie since it exists already
             try:
-                cj.load(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
+                cj.load(cookie_file, ignore_discard=True, ignore_expires=True)
                 G.LOCK.release()
             except cookielib.LoadError:
-                if 'presetcookie' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['presetcookie'] == '1':
-                    out('ERROR','The cookie for %s is the wrong format'%site,site)
+                if G.NETWORKS[site]['regex'].get('presetcookie') == '1':
+                    out('ERROR',
+                        'The cookie for %s is the wrong format' % site,
+                        site)
                     G.LOCK.release()
                     return 'preset'
                 else:
@@ -512,212 +591,344 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
                         return 'password'
     else:
         G.LOCK.release()
-        if not 'passkey' in G.NETWORKS[site]['creds'] or ('passkey' in G.NETWORKS[site]['creds'] and G.NETWORKS[site]['creds']['passkey'] == ''):
-            out('ERROR','This site requires the passkey to be set in credentials.conf')
+        if not G.NETWORKS[site]['creds'].get('passkey'):
+            _msg = ('This site requires the passkey to be set in '
+                    'credentials.conf')
+            out('ERROR', _msg, site)
             return 'passkey'
-    
-    #create the downloadURL based on downloadType
-    if downloadType == '1': # request a download ID, and get a filename
-        downloadURL = G.NETWORKS[site]['regex']['downloadurl'] + downloadID
+
+    # just in case
+    G.LOCK.release()
+
+    # create the downloadURL based on downloadType
+    downloadURL = G.NETWORKS[site]['regex']['downloadurl']
+    if downloadType == '1':  # request a download ID, and get a filename
+        downloadURL = downloadURL + downloadID
     elif downloadType == '2':
-        downloadURL = G.NETWORKS[site]['regex']['downloadurl'] + '/' + downloadID + '/' + downloadID + '.torrent'
+        downloadURL = '%s/%s/%s.torrent' % (downloadURL,
+                                            downloadID,
+                                            downloadID)
     elif downloadType == '3':
-        downloadURL = G.NETWORKS[site]['regex']['downloadurl'] + '/' + downloadID + '/' + G.NETWORKS[site]['regex']['urlending']
+        downloadURL = '%s/%s/%s' % (downloadURL,
+                                    downloadID,
+                                    G.NETWORKS[site]['regex']['urlending'])
     elif downloadType == '4':
-        downloadURL = G.NETWORKS[site]['regex']['downloadurl'] + downloadID + G.NETWORKS[site]['regex']['urlending'] + downloadID + '.torrent'
+        url_ending = G.NETWORKS[site]['regex']['urlending']
+        downloadURL = '%s%s%s%s.torrent' % (downloadURL,
+                                            downloadID,
+                                            url_ending,
+                                            downloadID)
     elif downloadType == '5':
-        downloadURL = G.NETWORKS[site]['regex']['downloadurl'] + '/' + downloadID + '/' + G.NETWORKS[site]['creds']['passkey'] + '/' + name + '.torrent'
-    #set the socket timeout
+        passkey = G.NETWORKS[site]['creds']['passkey']
+        downloadURL = '%s/%s/%s/%s.torrent' % (downloadURL,
+                                               downloadID,
+                                               passkey,
+                                               name)
+
     socket.setdefaulttimeout(25)
-        
+
     handle = None
     try:
-        handle = getFile(downloadURL,cj)
-    except urllib2.HTTPError, e:
-        if int(e.code) in (301,302,303,307):
-            print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+        handle = getFile(downloadURL, cj)
+    except urllib2.HTTPError as e:
+        if int(e.code) in (301, 302, 303, 307):
+            _msg = ('Caught a redirect. '
+                    'Code: %s, url: %s, headers %s, others: %s')
+            _msg = _msg % (e.code, e.url, e.headers.dict, e.__dict__.keys())
+            out('ERROR', _msg, site)
             return 'moved'
         else:
-            print 'Caught another http error. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+            _msg = ('Caught another http error. '
+                    'Code: %s, url: %s, headers: %s, others: %s')
+            _msg = _msg % (e.code, e.url, e.headers.dict, e.__dict__.keys())
+            out('ERROR', _msg, site)
             return 'httperror'
     else:
         return handle
 
-def download(downloadID, site, location=False, network=False, target=False, retries=0, email=False, notify=False, filterName=False, announce=False, formLogin=False, sizeLimits=False, name=False, fromweb=False):
-    """Take an announce download ID and the site to download from, do some magical stuff with cookies, and download the torrent into the watch folder
-    Returns a tuplet with (True/False, statusmsg)"""
-    out('DEBUG', 'Downloading ID: %s, site: %s, filter: %s, location: %s, network: %s, target: %s, retries: %s, email: %s, announce %s, name %s'%(downloadID, site, filterName, location, network, target, retries, email, announce, name))
+
+def download(downloadID, site, location=False, network=False, target=False,
+             retries=0, email=False, notify=False, filterName=False,
+             announce=False, formLogin=False, sizeLimits=False, name=False,
+             fromweb=False):
+    """Take an announce download ID and the site to download from.
+    Do some magical stuff with cookies.
+    Download the torrent into the watch folder.
+    Returns a tuplet with (True/False, statusmsg).
+    """
+    _msg = ('Downloading ID: %s, site: %s, filter: %s, location: %s, '
+            'network: %s, target: %s, retries: %s, email: %s, announce %s, '
+            'name %s')
+    _msg = _msg % (downloadID,
+                   site,
+                   filterName,
+                   location,
+                   network,
+                   target,
+                   retries,
+                   email,
+                   announce,
+                   name)
+
+    out('DEBUG', _msg)
     success = False
     error = ''
+
     G.LOCK.acquire()
-    
-    #load where we should be saving the torrent if not already set
+
+    # load where we should be saving the torrent if not already set
     if not location:
         location = SETUP.get('setup', 'torrentdir')
-        if 'watch' in G.NETWORKS[site]['creds'] and G.NETWORKS[site]['creds']['watch'] != '':
-            location = G.NETWORKS[site]['creds']['watch']
-            
-    #'network' is only sent if it's a manual download, so if it's false that means this is an automatic dl
-    #if it's automatic, then check to see if the delay exists
+        _watch = G.NETWORKS[site]['creds'].get('watch')
+        if _watch:
+            location = _watch
+
+    # 'network' is only sent if it's a manual download,
+    # so if it's false that means this is an automatic dl
+    # if it's automatic, then check to see if the delay exists
     sleepi = None
     if retries == 0 and not network and not fromweb:
-        if SETUP.has_option('setup', 'delay') and SETUP.get('setup', 'delay').lstrip().rstrip() != '':
-            sleepi = int(SETUP.get('setup', 'delay'))
-    
-    #check if the network requires a torrentname for downloading
-    if 'downloadtype' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['downloadtype'] == '5':
-        if 'nameregexp' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['nameregexp'] != '':
+        _delay = ''
+        if SETUP.has_option('setup', 'delay'):
+            _delay = SETUP.get('setup', 'delay').strip()
+        if _delay != '':
+            sleepi = int(_delay)
+
+    # check if the network requires a torrentname for downloading
+    if G.NETWORKS[site]['regex'].get('downloadtype') == '5':
+        _nameregexp = G.NETWORKS[site]['regex'].get('nameregexp')
+        if _nameregexp:
             if not name:
                 if announce:
-                    name = re.match(G.NETWORKS[site]['regex']['nameregexp'],announce).group(1)
+                    name = re.match(_nameregexp, announce).group(1)
                 else:
-                    error = 'The download function for this site can only be used for the button and automatic downloads.'
+                    error = ('The download function for this site can only '
+                             'be used for the button and automatic downloads.')
         else:
-            error = 'This site requires the variable \'nameregexp\' to be set in regex.conf.'
-        
+            error = ('This site requires the variable \'nameregexp\' to be '
+                     'set in regex.conf.')
+
     G.LOCK.release()
-    
+
     file_info = False
-    retreived = ''
+    retrieved = ''
     if not error:
-        if sleepi: time.sleep(sleepi)
-        #if this is a retry, then wait 3 seconds.
+        if sleepi:
+            time.sleep(sleepi)
+        # if this is a retry, then wait 3 seconds.
         if retries > 0:
             if not network and not fromweb:
                 time.sleep(3)
             else:
                 time.sleep(0.5)
-        
+
         cj = cookielib.LWPCookieJar()
-    
-        #use the cookie to download the file
-        retreived = dlCookie(downloadID, site, cj, target, network, name)
-        if str(type(retreived)) == "<type 'instance'>":
-            file_info = retreived.info()
-                
+
+        # use the cookie to download the file
+        retrieved = dlCookie(downloadID, site, cj, target, network, name)
+        if str(type(retrieved)) == "<type 'instance'>":
+            file_info = retrieved.info()
+
     retry = False
 
     if file_info:
         if file_info.type == 'text/html':
-            #This could either mean the torrent doesn't exist or we are not logged in
+            # This could either mean the torrent doesn't exist
+            # or we are not logged in
             G.LOCK.acquire()
-            if 'presetcookie' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['presetcookie'] == '1':
-                statusmsg = 'There was an error downloading torrent %s from %s. Either it was deleted, or the cookie you entered is incorrect.'%(downloadID, site)
+            statusmsg = ('There was an error downloading torrent %s from %s. '
+                         'Either it was deleted, or the %s you entered '
+                         'is incorrect.')
+            if G.NETWORKS[site]['regex'].get('presetcookie') == '1':
+                statusmsg = statusmsg % (downloadID, site, 'cookie')
             else:
-                statusmsg = 'There was an error downloading torrent %s from %s. Either it was deleted, or the credentials you entered are incorrect.'%(downloadID, site)
+                statusmsg = statusmsg % (downloadID, site, 'credentials')
             G.LOCK.release()
             retry = True
-                            
+
         elif file_info.type == 'application/x-bittorrent':
-            #figure out the filename
-            #see if the file has content disposition, if it does read it.
-            info = retreived.read()
+            # figure out the filename
+            # see if the file has content disposition, if it does read it.
+            info = retrieved.read()
             try:
                 tp = torrentparser(debug=False, content=info)
                 mbsize = tp.mbsize()
                 tpname = tp.name()
-            except SyntaxError, e:
-                out('ERROR','The torrentparser was unable to parse the torrent file. Please let blubba know: %s' %e,site=site)
+            except SyntaxError as e:
+                _msg = ('The torrentparser was unable to parse the torrent '
+                        'file. Please let blubba know: %s')
+                out('ERROR', _msg % e, site)
                 mbsize = None
                 tpname = None
-            
+
             if not name:
                 if tpname:
                     filename = tpname
-                else:    
+                else:
                     if 'Content-Disposition' in file_info:
                         for cd in G.CD:
                             if cd in file_info['Content-Disposition']:
-                                filename = file_info['Content-Disposition'].replace(cd,'').replace('"','')
+                                filename = file_info['Content-Disposition']
+                                filename = filename.replace(cd, '')
+                                filename = filename.replace('"', '')
                     if filename == '':
-                        filename = downloadID+'.torrent'
+                        filename = downloadID + '.torrent'
             else:
                 filename = name
-            
-            if '.torrent' not in filename: filename += '.torrent'
+
+            if '.torrent' not in filename:
+                filename += '.torrent'
             filename = urllib.unquote(filename)
-            
+
             sizeOK = True
             if sizeLimits and not (network or fromweb):
                 sizerange = sizeLimits.split(',')
                 if mbsize:
                     G.LOCK.acquire()
-                    if (len(sizerange) == 1 and mbsize > float(sizerange[0])) or (len(sizerange) == 2 and mbsize > float(sizerange[1])):
-                        out('INFO', "(%s) Torrent is larger than required by filter '%s'."%(downloadID,filterName),site)
+                    if ((len(sizerange) == 1
+                            and mbsize > float(sizerange[0]))
+                            or (len(sizerange) == 2
+                                and mbsize > float(sizerange[1]))):
+                        _msg = ('(%s) Torrent is larger than required by '
+                                'filter "%s".')
+                        _msg = _msg % (downloadID, filterName)
+                        out('INFO', _msg, site)
                         sizeOK = False
                     elif len(sizerange) == 2 and mbsize < float(sizerange[0]):
                         sizeOK = False
-                        out('INFO', "(%s) Torrent is smaller than required by '%s'."%(downloadID,filterName),site)
+                        _msg = ('(%s) Torrent is smaller than required by '
+                                'filter "%s".')
+                        _msg = _msg % (downloadID, filterName)
+                        out('INFO', _msg, site)
                     else:
-                        out('INFO', "(%s) Torrent is within size range required by filter '%s'."%(downloadID,filterName),site)
+                        _msg = ('(%s) Torrent is within size range required '
+                                'by filter "%s".')
+                        _msg = _msg % (downloadID, filterName)
+                        out('INFO', _msg, site)
                     G.LOCK.release()
             elif not (network or fromweb):
                 G.LOCK.acquire()
-                out('INFO', '(%s) No Size check.'%downloadID,site)
+                out('INFO', '(%s) No Size check.' % downloadID, site)
                 G.LOCK.release()
             if sizeOK:
                 G.LOCK.acquire()
                 try:
-                    local_file = open(os.path.join(location, filename),'wb')
+                    local_file = open(os.path.join(location, filename), 'wb')
                     local_file.write(info)
                     local_file.close()
                 except IOError:
-                    #If there's no room on the hard drive
-                    
-                    out('ERROR', '(%s) !! Disk quota exceeded. Not enough room for the torrent!'%downloadID,site)
-                    statusmsg = 'Can\'t write the torrent file on the disk, as there is not enough free space left!'
+                    # If there's no room on the hard drive
+                    _msg = ('(%s) !! Disk quota exceeded. Not enough room '
+                            'for the torrent!') % downloadID
+                    out('ERROR', _msg, site)
+                    statusmsg = ('Can\'t write the torrent file on the disk, '
+                                 'as there is not enough free space left!')
                     retry = True
                 else:
-                    #if the filesize of the torrent is too small, then retry in a moment
-                    if 100 > int(os.path.getsize(os.path.join(location, filename))):
-                        statusmsg = 'The size of the torrent is too small. Maybe try a different torrent of this tracker to see if this is a local or global occurance.'
+                    # if the filesize of the torrent is too small
+                    # then retry in a moment
+                    _size = os.path.getsize(os.path.join(location, filename))
+                    if 100 > int(_size):
+                        statusmsg = ('The size of the torrent is too small. '
+                                     'Maybe try a different torrent of this '
+                                     'tracker to see if this is a local or '
+                                     'global occurance.')
                         retry = True
-                    else: 
+                    else:
                         success = True
                         if mbsize:
-                            statusmsg = 'Torrent (id: %s) successfully downloaded! Size %.2f MB, retries: %d, filename: %s' %(str(downloadID),mbsize,retries,filename)
+                            statusmsg = ('Torrent (id: %s) successfully '
+                                         'downloaded! Size %.2f MB, '
+                                         'retries: %d, filename: %s')
+                            statusmsg = statusmsg % (downloadID,
+                                                     mbsize,
+                                                     retries,
+                                                     filename)
                         else:
-                            statusmsg = 'Torrent (id: %s) successfully downloaded! Retries: %d, filename: %s' %(str(downloadID),retries,filename)
+                            statusmsg = ('Torrent (id: %s) successfully '
+                                         'downloaded! Retries: %d, '
+                                         'filename: %s') % (downloadID,
+                                                            retries,
+                                                            filename)
                 G.LOCK.release()
             else:
                 statusmsg = 'The torrent size did not fit the filter.'
-                    
-                
+
         else:
-            out('ERROR','unknown filetype received: %s' %file_info.type, site)
+            out('ERROR',
+                'unknown filetype received: %s' % file_info.type,
+                site)
             retry = True
+
     elif error:
         statusmsg = error
     else:
-        if retreived == 'preset':
-            statusmsg = 'This site requires a cookie to be preset, called \'%s.torrent\' in the folder \'cookies\'. Either this cookie is missing or malformatted.' %site
-        elif retreived == 'password':
-            statusmsg = 'The login credentials set in credentials.conf for %s are incorrect or missing.' %site
-            #retry = True
-        elif retreived == 'moved':
-            statusmsg = 'Either the torrent id (%s) does not exist or your credentials for %s are wrong or missing' %(str(downloadID),site)
+        if retrieved == 'preset':
+            statusmsg = ('This site requires a cookie to be preset, '
+                         'called \'%s.torrent\' in the folder \'cookies\'. '
+                         'Either this cookie is missing or '
+                         'malformatted.') % site
+
+        elif retrieved == 'password':
+            statusmsg = ('The login credentials set in credentials.conf '
+                         'for %s are incorrect or missing.') % site
+
+        elif retrieved == 'moved':
+            statusmsg = ('Either the torrent id (%s) does not exist or your '
+                         'credentials for %s are wrong or '
+                         'missing') % (downloadID, site)
             retry = True
-        elif retreived == 'httperror':
-            statusmsg = 'An http error occured. Please check if the site is online, and check the log for more details if this problem persists.'
+
+        elif retrieved == 'httperror':
+            statusmsg = ('An http error occured. Please check if the site is '
+                         'online, and check the log for more details if this '
+                         'problem persists.')
             retry = True
-        elif retreived == 'downloadtype':
-            statusmsg = 'The key \'downloadType\' is not set in regex.conf. Aborting'
-        elif retreived == 'passkey':
-            statusmsg = 'This site requires the passkey to be set in credentials.conf. Please set it and try again.'
+
+        elif retrieved == 'downloadtype':
+            statusmsg = ('The key \'downloadType\' is not set in '
+                         'regex.conf. Aborting.')
+
+        elif retrieved == 'passkey':
+            statusmsg = ('This site requires the passkey to be set in '
+                         'credentials.conf. Please set it and try again.')
+
     if retry and retries <= 0:
         G.LOCK.acquire()
-        if not 'presetcookie' in G.NETWORKS[site]['regex'] or ( 'presetcookie' in G.NETWORKS[site]['regex'] and not G.NETWORKS[site]['regex']['presetcookie'] == '1'):
-            if os.path.isfile(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie')):
-                os.remove(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'))
+        _presetcookie = G.NETWORKS[site]['regex'].get('presetcookie')
+        if not _presetcookie or _presetcookie != '1':
+            cookie_path = os.path.join(G.SCRIPTDIR,
+                                       'cookies',
+                                       site + '.cookie')
+            if os.path.isfile(cookie_path):
+                os.remove(cookie_path)
             else:
-                out('ERROR','The cookie file doesn\'t exist here... this should not happen!',site)
-        out('INFO','(%s) !! Torrent file is not ready to be downloaded. Trying again in a moment. Reason: %s'%(downloadID,statusmsg),site)
+                _msg = ('The cookie file doesn\'t exist here... '
+                        'this should not happen!')
+                out('ERROR', _msg, site)
+
+        _msg = ('(%s) !! Torrent file is not ready to be downloaded. '
+                'Trying again in a moment. Reason: %s')
+        out('INFO', _msg % (downloadID, statusmsg), site)
         G.LOCK.release()
-        return download(downloadID, site, location=location, network=network, target=target, retries=retries+1, email=email, notify=notify, filterName=filterName, announce=announce, formLogin=formLogin, sizeLimits=sizeLimits, name=name, fromweb=fromweb)
+        return download(downloadID,
+                        site,
+                        location=location,
+                        network=network,
+                        target=target,
+                        retries=retries+1,
+                        email=email,
+                        notify=notify,
+                        filterName=filterName,
+                        announce=announce,
+                        formLogin=formLogin,
+                        sizeLimits=sizeLimits,
+                        name=name,
+                        fromweb=fromweb)
 
     elif success:
         G.LOCK.acquire()
-        out('INFO','%s to %s'%(statusmsg,location),site)
+        out('INFO', '%s to %s' % (statusmsg, location), site)
         if email:
             sendEmail(site, announce, filterName, filename)
         if notify:
@@ -727,55 +938,54 @@ def download(downloadID, site, location=False, network=False, target=False, retr
         G.LOCK.release()
         return (True, statusmsg)
     else:
-        #did not succeed in downloading!
-        G.LOCK.acquire() 
-        out('ERROR','Download error (%s): %s'%(downloadID,statusmsg),site)
+        # did not succeed in downloading!
+        G.LOCK.acquire()
+        _msg = 'Download error (%s): %s' % (downloadID, statusmsg)
+        out('ERROR', _msg, site)
         if network:
-            network.sendMsg('Download error (%s:%s): %s'%(site,downloadID,statusmsg), target)
+            _msg = 'Download error (%s:%s): %s' % (site, downloadID, statusmsg)
+            network.sendMsg(_msg, target)
         G.LOCK.release()
         return (False, statusmsg)
-    
 
 
 def getFile(downloadURL, cj):
-    #create the opener
-    if SETUP.get('setup','verbosity').lower() == 'debug':
+    # create the opener
+    if SETUP.get('setup', 'verbosity').lower() == 'debug':
         opener = build_opener(cj, debug=1)
     else:
         opener = build_opener(cj)
     urllib2.install_opener(opener)
     req = urllib2.Request(downloadURL)
-    req.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36")
+    req.add_header("User-Agent", USER_AGENT)
     return urllib2.urlopen(req)
 
+
 def createCookie(site, cj):
-    urlopen = urllib2.urlopen
-    Request = urllib2.Request
-    #opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-    if SETUP.get('setup','verbosity').lower() == 'debug':
+    cookie_path = os.path.join(G.SCRIPTDIR, 'cookies', '%s.cookie' % site)
+
+    if SETUP.get('setup', 'verbosity').lower() == 'debug':
         opener = build_opener(cj, debug=1)
     else:
         opener = build_opener(cj)
-        
     urllib2.install_opener(opener)
-    G.NETWORKS[site]['regex']
-    if 'loginuserpost' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginuserpost'] != '':
-        userpost = G.NETWORKS[site]['regex']['loginuserpost']
-    else:
-        userpost = 'username'
-    
-    if 'loginpasswordpost' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginpasswordpost'] != '':
-        passpost = G.NETWORKS[site]['regex']['loginpasswordpost']
-    else:
-        passpost = 'password'
-    
-    httpdict = {userpost : G.NETWORKS[site]['creds']['username'], passpost : G.NETWORKS[site]['creds']['password'] }
-    
-    if 'morepostdata' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['morepostdata'] != '':
+
+    userpost = G.NETWORKS[site]['regex'].get('loginuserpost', 'username')
+    passpost = G.NETWORKS[site]['regex'].get('loginpasswordpost', 'password')
+
+    httpdict = {
+        userpost: G.NETWORKS[site]['creds']['username'],
+        passpost: G.NETWORKS[site]['creds']['password']
+    }
+
+    extra_post_data = G.NETWORKS[site]['regex'].get('morepostdata', '')
+    if extra_post_data != '':
         try:
-            newdict = eval("{"+ G.NETWORKS[site]['regex']['morepostdata'] + "}")
+            newdict = eval('{' + extra_post_data + '}')
         except SyntaxError:
-            out('ERROR', 'morepostdata variable raised a syntax error %s' %G.NETWORKS[site]['regex']['morepostdata'], site=site)
+            _msg = 'morepostdata variable raised a syntax error: %s'
+            _msg = _msg % extra_post_data
+            out('ERROR', _msg, site)
         httpdict.update(newdict)
 
     if site == 'passthepopcorn':
@@ -783,227 +993,261 @@ def createCookie(site, cj):
 
     http_args = urllib.urlencode(httpdict)
 
-    #http_args = urllib.urlencode(dict(username=G.NETWORKS[site]['creds']['username'], password=G.NETWORKS[site]['creds']['password']))
+    req = urllib2.Request(G.NETWORKS[site]['regex']['loginurl'], http_args)
+    req.add_header('User-Agent', USER_AGENT)
 
-    req = Request(G.NETWORKS[site]['regex']['loginurl'], http_args)
-    req.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36")
-    if site == "whatcd":
+    if site == 'whatcd':
         req.add_header('Referer', 'https://what.cd/login.php')
 
-    out('INFO','Logging into %s because a cookie was not previously saved or is outdated.'%site,site=site)
+    _msg = ('Logging into %s because a cookie was not previously saved or is '
+            'outdated.') % site
+    out('INFO', _msg, site)
+
     handle = None
     try:
-        handle = urlopen(req)
-    except urllib2.HTTPError, e:
-        print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
-        #print cj
+        handle = urllib2.urlopen(req)
+    except urllib2.HTTPError as e:
+        _msg = 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s'
+        _msg = _msg % (e.code, e.url, e.headers.dict, e.__dict__.keys())
+        out('DEBUG', _msg, site)
+
         G.LOCK.acquire()
-        cj.save(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
+        cj.save(cookie_path, ignore_discard=True, ignore_expires=True)
         G.LOCK.release()
         return cj
-    
-    if handle and 'login200' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['login200'] == '1':
+
+    login200 = G.NETWORKS[site]['regex'].get('login200')
+    loginjson = G.NETWORKS[site]['regex'].get('loginjson')
+
+    if handle and login200 == '1':
         G.LOCK.acquire()
-        cj.save(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
+        cj.save(cookie_path, ignore_discard=True, ignore_expires=True)
         G.LOCK.release()
         return cj
-    elif handle and 'loginjson' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginjson'] == '1':
+
+    elif handle and loginjson == '1':
         import json
         try:
-            result = json.loads(handle.read())
+            json_data = json.loads(handle.read())
         except ValueError:
             out('ERROR', 'Invalid JSON returned on login attempt', site)
             return
-        if 'Result' in result and result['Result'] == 'Error':
-            if 'Message' in result:
-                    out('ERROR', "Result: %s, Message: %s" % (result['Result'],result['Message']), site)
-            else:
-                    out('ERROR', "Result: %s " % result['Result'], site)
-        elif 'Result' in result and result['Result'] == 'Ok':
-                G.LOCK.acquire()
-                cj.save(os.path.join(G.SCRIPTDIR,'cookies','%s.cookie' % site), ignore_discard=True, ignore_expires=True)
-                G.LOCK.release()
-                return cj
+        result = json_data.get('Result')
+
+        if result == 'Error':
+            message = json_data.get('Message', 'unknown')
+            _msg = 'Login error: %s' % message
+            out('ERROR', _msg, site)
+
+        elif result == 'Ok':
+            G.LOCK.acquire()
+            cj.save(cookie_path, ignore_discard=True, ignore_expires=True)
+            G.LOCK.release()
+            return cj
+
     elif handle:
-            #print "----"
-            #print handle.read()
-            #print "----"
-            #print handle.info()
-            out('ERROR','Password seems to be incorrect',site)
-            return False
+        out('ERROR', 'Password seems to be incorrect', site)
+        return False
     else:
-        out('ERROR','We don\'t have a redirect but still data? How can that happen?',site)
+        out('ERROR',
+            'We don\'t have a redirect but still data? How can that happen?',
+            site)
+
+
+class SmartRedirectHandler(urllib2.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        out('DEBUG',
+            'Redirect received. stuff: %s, %s, %s' % (code, msg, newurl))
+        return None
 
 
 def build_opener(cj, debug=False):
     http_handler = urllib2.HTTPHandler(debuglevel=debug)
     https_handler = urllib2.HTTPSHandler(debuglevel=debug)
-
     cookie_handler = urllib2.HTTPCookieProcessor(cj)
 
-    opener = urllib2.build_opener(http_handler, https_handler, cookie_handler, smartredirecthandler())
-
+    opener = urllib2.build_opener(http_handler,
+                                  https_handler,
+                                  cookie_handler,
+                                  SmartRedirectHandler())
     opener.cookie_jar = cj
-
     return opener
 
-class smartredirecthandler(urllib2.HTTPRedirectHandler):
-    
-    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
-        out('DEBUG','Redirect received. stuff: %s, %s, %s' %(code,msg,newurl))
-        return None
 
 def sendEmail(site, announce, filter, filename):
-    # Imports
+    from email.mime import text as mimetext
     import smtplib
-    from email.mime.text import MIMEText
-    
-    #create the message
-#    msg = 'pyWA has detected a new download.\n\nSite: %(site)s\nCaptured Announce: %(announce)s\nMatched Filter: %(filter)s\nSaved Torrent: %(filename)s'%{'filename':filename, 'filter':filter, 'site':site, 'announce':announce}
-    msg = MIMEText('pyWA has detected a new download.\n\nSite: %(site)s\nCaptured Announce: %(announce)s\nMatched Filter: %(filter)s\nSaved Torrent: %(filename)s'%{'filename':filename, 'filter':filter, 'site':site, 'announce':announce})
-    gmail = SETUP.get('notification','gmail')
-    msg['Subject'] = 'pyWA: New %s download!'%site
-    
-    # Send the message via our own SMTP server
-    
+
+    _msg = ('pyWA has detected a new download.\n\n'
+            'Site: %(site)s\n'
+            'Captured Announce: %(announce)s\n'
+            'Matched Filter: %(filter)s\n'
+            'Saved Torrent: %(filename)s')
+    _msg = _msg % ({
+        'filename': filename,
+        'filter': filter,
+        'site': site,
+        'announce': announce
+    })
+    msg = mimetext.MIMEText(_msg)
+    gmail = SETUP.get('notification', 'gmail')
+    msg['Subject'] = 'pyWA: New %s download!' % site
+
     s = smtplib.SMTP("smtp.gmail.com", 587)
     s.ehlo()
     s.starttls()
     s.ehlo()
-    
-    #s = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+
     try:
-        out('INFO','Emailing %s with a notification.'%gmail)
-        s.login(gmail, SETUP.get('notification','password'))
+        out('INFO', 'Emailing %s with a notification.' % gmail, site)
+        s.login(gmail, SETUP.get('notification', 'password'))
         s.sendmail(gmail, gmail, msg.as_string())
         s.quit()
-    except Exception, e:
-        out('ERROR', 'Could not send notify email. Error: %s'%e.smtp_error)
+    except Exception as e:
+        out('ERROR',
+            'Could not send notify email. Error: %s' % e.smtp_error,
+            site)
+
 
 def sendNotify(site, announce, filter, filename):
     sent = False
+    notify_server = SETUP.get('notification', 'server')
     for net in G.RUNNING.itervalues():
-        #G.NETWORKS[bot.getBotName()]
-        if net.getBotName() == SETUP.get('notification', 'server'):
-            out('INFO', 'Messaging %s with an IRC notification.'%SETUP.get('notification', 'nick'))
-            net.sendMsg('New DL! Site: %(site)s, Filter: %(filter)s, File: %(file)s '%{'site':site, 'filter':filter,'file':filename}, SETUP.get('notification', 'nick'))
-            sent = True
-    if not sent:
-        out('ERROR','Could not send notification via %s, because I am not connected to that network'%SETUP.get('notification', 'server'))
+        if net.getBotName() == notify_server:
+            _msg = 'Messaging %s with an IRC notification.'
+            out('INFO', _msg % SETUP.get('notification', 'nick'), site)
 
-class WebServer( Thread ):
-    
+            _msg = 'New DL! Site: %(site)s, Filter: %(filter)s, File: %(file)s'
+            _msg = _msg % ({
+                'site': site,
+                'filter': filter,
+                'file': filename
+            })
+            net.sendMsg(_msg, SETUP.get('notification', 'nick'))
+            sent = True
+
+    if not sent:
+        _msg = ('Could not send notification via %s, because I am not '
+                'connected to that network.') % notify_server
+        out('ERROR', _msg, site)
+
+
+class WebServer(threading.Thread):
     def __init__(self, loadloc, pw, port, ip=''):
         global webpass
-        Thread.__init__(self)
+        threading.Thread.__init__(self)
         self.loadloc = loadloc
+        try:
+            self.port = int(port)
+        except ValueError:
+            out('ERROR', 'Invalid web UI port. Using default of 8999')
+            self.port = 8999
         self.port = port
         self.ip = ip
         if pw != '':
             webpass = pw
         else:
-            webpass = str(random.randint(10**5,10**9))
-            out('ERROR','No webserver password set. Assigning a random one: %s'%webpass)
+            webpass = str(random.randint(10**5, 10**9))
+            _msg = 'No webserver password set. Assigning a random one: %s'
+            _msg = _msg % webpass
+            out('ERROR', _msg)
 
     def run(self):
         global CONN, C
         CONN = sqlite3.connect(os.path.join(self.loadloc, 'example.db'))
-        #CONN = sqlite3.connect(":memory:")
         C = CONN.cursor()
-        
-        self.server = ThreadedHTTPServer((self.ip, int(self.port)), MyHandler)
-        print 'started httpserver...'
+
+        self.server = ThreadedHTTPServer((self.ip, self.port), MyHandler)
+        out('INFO', 'Starting web server.')
         self.server.serve_forever()
 
-class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    '''Handles requests in threads'''
 
-class MyHandler(BaseHTTPRequestHandler):
-    
-    def do_GET(self):
-        error = False
-        try:
-            if self.path.split('?')[0].lower().endswith(".pywa"):
-                if self.path.startswith("/dl"):
-                    arg = self.path.split("?")
-                    if len(arg)>1:
-                        arg = arg[1].split('&')
-                        args = dict()
-                        for a in arg:
-                            b = a.split('=')
-                            if len(b)>1:
-                                args[b[0]] = b[1]
-                        print args
-                    else:
-                        error = True
-                    if not error:
-                        if 'pass' in args and args['pass'] == webpass:
-                            if 'id' in args and args['id'] != "":
-                                id = args['id']
-                                if 'site' in args and args['site'].lower() in G.FROMALIAS:
-                                    site = G.FROMALIAS[args['site'].lower()]
-                                    out('INFO',"WebUI download request for id %s received from %s"%(args['id'], self.client_address[0]),site)
-                                    if 'name' in args:
-                                        name = args['name']
-                                    else:
-                                        name = None
-                                    try:
-                                        if 'buttonwatch' in G.NETWORKS[site]['creds']:
-                                            loc = G.NETWORKS[site]['creds']['watch']
-                                        elif SETUP.has_option('setup','buttonwatch') and SETUP.get('setup', 'buttonwatch') != '':
-                                            loc = SETUP.get('setup', 'buttonwatch')
-                                        else:
-                                            loc = None
-                                        output = download(id, site, location=loc, name=name, fromweb=True)
-                                    
-                                    except Exception as e:
-                                        outexception('Error while downloading %s from web, error: %s' %(str(id),str(e)),site)
-    
-                                    self.send_response(200)
-                                    self.send_header('Content-type','text/html')
-                                    self.end_headers()
-                                    
-                                    if output[0]:
-                                        self.wfile.write("<html><head><script>t = null;function moveMe(){t = setTimeout(\"self.close()\",10000);}</script></head><body onload=\"moveMe()\">")
-                                        self.wfile.write("%s" %output[1])
-                                        self.wfile.write("</body></html>")
-                                    else:
-                                        self.wfile.write("<html><head></head>")
-                                        self.wfile.write("%s" %output[1])
-                                        self.wfile.write("</body></html>")
-                                else:
-                                    #unknown/no site name
-                                    self.send_response(200)
-                                    self.send_header('Content-type','text/html')
-                                    self.end_headers()
-                                    self.wfile.write("<html><head></head>")
-                                    self.wfile.write("Incorrect sitename.")
-                                    self.wfile.write("</body></html>")
-                            else:
-                                #no ID supplied
-                                self.send_response(200)
-                                self.send_header('Content-type','text/html')
-                                self.end_headers()
-                                self.wfile.write("<html><head></head>")
-                                self.wfile.write("Torrentid missing.")
-                                self.wfile.write("</body></html>") 
-                        else:
-                            self.send_response(200)
-                            self.send_header('Content-type','text/html')
-                            self.end_headers()
-                            self.wfile.write("Incorrect password supplied. Try again.")
-                            out('WARNING','Received a webUI download command with the wrong password from ip %s' %self.client_address[0])
-                    else:
-                        self.send_response(200)
-                        self.send_header('Content-type','text/html')
-                        self.end_headers()
-                        self.wfile.write("Incorrect command structure. Try again.")
+class ThreadedHTTPServer(SocketServer.ThreadingMixIn,
+                         BaseHTTPServer.HTTPServer):
+    """Handles requests in threads."""
+
+
+class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+
+    def __init__(self, *args, **kwargs):
+        super(MyHandler, self).__init__(self, *args, **kwargs)
+        self.routes = {
+            'dl.pywa': self.download,
+        }
+
+    def parse_path(self):
+        parts = self.path.split('?')
+        path = parts[0]
+        args = {}
+        if len(parts) > 1:
+            params = ''.join(parts[1:])
+            params = parts[1].split('&')
+            for param in params:
+                pieces = param.split('=')
+                if len(pieces) > 1:
+                    args[pieces[0]] = ''.join(pieces[1:])
                 else:
-                    self.send_error(404)
+                    args[pieces[0]] = None
+
+        return path, args
+
+    def route(self, path):
+        return self.routes.get(path)
+
+    def download(self, args):
+        id_ = args.get('id')
+        site = args.get('site', '').lower()
+        password = args.get('password')
+        name = args.get('name')
+
+        if not id_:
+            self.send_error(400, 'Torrent ID missing.')
+        if not site or site not in G.FROMALIAS:
+            self.send_error(400, 'Unknown site')
+        if password is None or password != webpass:
+            self.send_error(403, 'Incorrect password')
+
+        site = G.FROMALIAS[site]
+
+        try:
+            if 'buttonwatch' in G.NETWORKS[site]['creds']:
+                loc = G.NETWORKS[site]['creds']['buttonwatch']
+            elif (SETUP.has_option('setup', 'buttonwatch')
+                  and SETUP.get('setup', 'buttonwatch') != ''):
+                loc = SETUP.get('setup', 'buttonwatch')
             else:
+                loc = None
+            output = download(id, site, location=loc, name=name, fromweb=True)
+
+        except Exception as e:
+            _msg = 'Error while downloading %s from web, error: %s'
+            outexception(_msg % (id_, e), site)
+            raise
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+
+        if output[0]:
+            self.wfile.write('<html><head><script>t = null;function moveMe()'
+                             '{t = setTimeout("self.close()",10000);}'
+                             '</script></head><body onload="moveMe()">')
+            self.wfile.write('%s' % output[1])
+            self.wfile.write('</body></html>')
+        else:
+            self.wfile.write('<html><head></head>')
+            self.wfile.write('<body>%s</body></html>' % output[1])
+
+    def do_GET(self):
+        try:
+            path, args = self.parse_path()
+            handler_func = self.route(path)
+            if handler_func is None:
                 self.send_error(404)
-        except Exception:
-            outexception('Generic do_GET exception')
+            handler_func(args)
+        except Exception as e:
+            outexception('web request handling error: %s' % e)
+            self.send_error(500)
 
 
 class autoBOT( ):
@@ -1023,7 +1267,7 @@ class autoBOT( ):
         self.havesendwhoisall = []
         self.piggyback = [self.name]
         self.pingsent = False
-        self.lastdata = datetime.now()
+        self.lastdata = datetime.datetime.now()
         self.regex = info['regex']
         self.creds = info['creds']
         self.setup = info['setup']
@@ -1596,7 +1840,7 @@ class autoBOT( ):
                 out('ERROR','Exception raised when proccessing naughty announce %s, error: %s' %(announce, repr(e)))
                 pass
         else:
-            self.lastannounce = datetime.now()
+            self.lastannounce = datetime.datetime.now()
             if downloadID:
                 self.lastannouncetext = downloadID
             else:
@@ -1708,7 +1952,7 @@ class autoBOT( ):
     def handleWelcome(self, connection, e):
         #out('DEBUG','server regexp: %s, connection.server: %s' %(self.regex['server'], str(connection.server)),site=self.name)
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             if self.connection.is_connected():
                 if 'tempbotnick' in self.creds:
                     self.connection.privmsg('nickserv', "GHOST %s %s" %(self.creds['botnick'], self.creds['nickservpass']))
@@ -1724,7 +1968,7 @@ class autoBOT( ):
     
     def handleInvite(self, connection, e):
         if connection == self.connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             out('DEBUG','Invited by %s (%s, %s) to join %s (announcechannel is %s)' %(str(e.source()), e.source()[e.source().index('!')+1:].lower(), self.regex['botwho'].lower(), str(e.arguments()), self.regex['announcechannel'] ),site=self.name)
             if e.source()[e.source().index('!')+1:].lower() == self.regex['botwho'].lower() and e.arguments()[0].lower() == self.regex['announcechannel'].lower():
                 out('DEBUG','Joining %s after invite.' %str(e.arguments()[0]) ,site=self.name)
@@ -1734,7 +1978,7 @@ class autoBOT( ):
     def handlePubMessage(self, connection, e):# Any public message
         """Handles the messages received by the IRCLIB and figures out WTF to do with them. Probably throws most of them away, cause IRC is full of trash."""
         if connection == self.connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             cleanedmsg = self.stripIRCColors(e.arguments()[0])
             #make sure that we always use lower case!
             if 'announcebotwho' in self.regex:
@@ -1749,7 +1993,7 @@ class autoBOT( ):
     def handlePrivMessage(self, connection, e):
         """Handle messages sent through PM."""
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             if (e.source()[e.source().index('!')+1:] == self.creds['nickowner'] or re.search(self.creds['nickowner'].lower(),e.source().lower())) and self.creds['nickowner'].lower != '':
                 self.handleOwnerMessage(e.arguments()[0], e.source()[:e.source().index('!')], e.source()[:e.source().index('!')])
             else:
@@ -1758,7 +2002,7 @@ class autoBOT( ):
     def handleAction(self, connection, e):
         """Handle messages sent as actions."""
         if connection == self.connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             cleanedmsg = self.stripIRCColors(e.arguments()[0])
             #make sure that we always use lower case!
             if 'announcebotwho' in self.regex:
@@ -1772,7 +2016,7 @@ class autoBOT( ):
                 
     def handleWhoIs(self, connection, e):
         if connection == self.connection and (self.havesendwhois or (e.arguments()[0].lower() in self.havesendwhoisall) or self.havesendwhoami):
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             out('DEBUG', 'Whois e.arguments()[0]: %s, full: %s' %(e.arguments()[0],repr(e.arguments())),site=self.name)
             if e.eventtype() == 'endofwhois':
                 if self.havesendwhois:
@@ -1872,7 +2116,7 @@ class autoBOT( ):
     
     def handleNameReply(self, connection, e):
         if self.connection == connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             out('DEBUG','namereply received, %s:%s' %(e.arguments(),e.target()),site=self.name)
             #if 'whatcd' == self.name:
                 #chan = e.arguments()[1]
@@ -1883,7 +2127,7 @@ class autoBOT( ):
                 
     def handlePrivNotice(self, connection, e):
         if connection == self.connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             out('INFO',"%s:%s" %(e.arguments(),e.target()),site=self.name)
             if 'password accepted' in e.arguments()[0].lower() and self.joined == False or 'you are now identified for' in e.arguments()[0].lower() and self.joined == False:
                 if self.piggyback[0] == self.name:
@@ -1952,14 +2196,14 @@ class autoBOT( ):
     
     def handleCurrentTopic(self, connection, e):
         if connection == self.connection:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             channel = e.arguments()[0]
             topic = self.stripIRCColors(e.arguments()[1])
             out('INFO','handleCurrentTopic: %s: %s'%(channel, topic),site=self.name)
     
     def handleNickInUse(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             if 'ircallowednick' in self.creds and self.joined == False:
                 out('ERROR','The nickname %s was already in use. I cannot join the announce channel without it, so I am disconnecting.' %(self.creds['ircallowednick']),site=self.name)
                 self.disconnect()
@@ -1971,7 +2215,7 @@ class autoBOT( ):
         
     def handleError(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             out('ERROR',"%s:%s:%s" %(e.arguments(),e.target(),repr(e)),site=self.name)
             con = self.connection.is_connected()
             if con:
@@ -1986,9 +2230,9 @@ class autoBOT( ):
     def handlePong(self, connection, e):
         #pong received. Shall we bother calculating the lag?
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             if self.pingsent:
-                timediff = datetime.now() - self.pingsent
+                timediff = datetime.datetime.now() - self.pingsent
                 self.pingsent = False
                 out('DEBUG','Pong received from %s, roundtrip time %.2f s' %(e.arguments()[0],(timediff.microseconds + (timediff.seconds + timediff.days * 24 * 3600) * 10**6) / 10**6),site=self.name)
             else:
@@ -2002,7 +2246,7 @@ class autoBOT( ):
         
     def handleAllDebug(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
-            self.lastdata = datetime.now()
+            self.lastdata = datetime.datetime.now()
             args = {}
             args["type"] = e.eventtype()
             args["source"] = e.source()
@@ -2026,7 +2270,7 @@ class autoBOT( ):
                     self.connection.execute_delayed(15, self.connect)
                 else:
                     #out('DEBUG','Testtimeout function called, adding new timer',site=self.name)
-                    td =  datetime.now() - self.lastdata
+                    td =  datetime.datetime.now() - self.lastdata
                     tds = (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
                     
                     err = False
@@ -2042,7 +2286,7 @@ class autoBOT( ):
                             self.connection.disconnect('Cause it broke')
                             self.connection.execute_delayed(15, self.connect)
                         else:
-                            self.pingsent = datetime.now()
+                            self.pingsent = datetime.datetime.now()
                     
                     if not err: self.connection.execute_delayed(10, self.testtimeout)
             else:
@@ -2516,7 +2760,7 @@ class autoBOT( ):
         for site in sorted(G.RUNNING.iterkeys()):
             try:
                 if G.RUNNING[site].lastannounce:
-                    diff = datetime.now() - G.RUNNING[site].lastannounce
+                    diff = datetime.datetime.now() - G.RUNNING[site].lastannounce
                     seconds = (diff.microseconds + (diff.seconds + diff.days * 24 * 3600) * 10**6) / 10**6
                     hours = int( seconds // (60*60) )
                     minutes = int((seconds - hours*60*60) // 60)
@@ -2535,7 +2779,7 @@ class autoBOT( ):
     def ftime(self, vars):
         target = vars[0]
         out('CMD','time',site=self.name)
-        self.sendMsg(datetime.now().strftime("The date is %A %d/%m/%Y and the time is %H:%M:%S.   [pyWHATauto]"), target)
+        self.sendMsg(datetime.datetime.now().strftime("The date is %A %d/%m/%Y and the time is %H:%M:%S.   [pyWHATauto]"), target)
     
     def fcycle(self, vars):
         target = vars[0]
@@ -2657,7 +2901,7 @@ class autoBOT( ):
     def fuptime(self, vars):
         out('CMD','uptime',site=self.name)
         target = vars[0]
-        diff = datetime.now() - G.STARTTIME
+        diff = datetime.datetime.now() - G.STARTTIME
         seconds = (diff.microseconds + (diff.seconds + diff.days * 24 * 3600) * 10**6) / 10**6
         days = int( seconds // (60*60*24))
         hours = int( seconds // (60*60) )
