@@ -1252,6 +1252,11 @@ class autoBOT( ):
         self.pingsent = False
         
     def shouldDownload(self, m, filtertype):
+        # Do not download torrents if there's not enough space!
+        if not freeSpaceOK():
+            out('INFO', 'Not enough free space to download torrent.')
+            return False, False
+
         i = 1 
         release = dict();        
         for str in self.regex[filtertype+'format'].split(', '):
@@ -1291,7 +1296,9 @@ class autoBOT( ):
                     out('INFO','Filter \'%s\' is not of type: %s' %(filter,filtertype),site=self.name)
             else:
                 out('INFO','Filter \'%s\' is not active'%(filter),site=self.name)        
-        return False, False  # otherwise, all filters failed the tests, so don't download
+        # If no filters match, don't download
+        out('FILTER','There was no match with any %s filters' %(filtertype),site=self.name)
+        return False, False
 
     def isTagOK(self, key, value, release, filtertype):
         if key == 'size': #if the filter includes a size limiter, just return true since we check it later anyway
@@ -1548,9 +1555,6 @@ class autoBOT( ):
                         else:
                             notifi = True
                             
-                    if not freeSpaceOK():
-                        out('ERROR','You have reached your free space limit. Torrent is being placed in an overflow folder. TO COME',site=self.name)
-                    
                     if self.advancedfilters == True:
                         #check site filters, just returns true/false!
                         pass
@@ -1569,7 +1573,6 @@ class autoBOT( ):
                     G.LOCK.acquire()
                     G.REPORTS[self.name]['seen'] += 1
                     G.LOCK.release()
-                    out('FILTER','There was no match with any %s filters' %(filtertype),site=self.name)
     
         if not matched:
         #why isn't this an announce?
