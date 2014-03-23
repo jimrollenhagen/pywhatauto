@@ -302,7 +302,7 @@ def reloadConfigs():
     G.LOCK.acquire()
     loadConfigs()
     for bot in G.RUNNING.itervalues():
-        bot.saveNewConfigs(G.NETWORKS[bot.getBotName()])
+        bot.save_new_configs(G.NETWORKS[bot.get_bot_name()])
     G.LOCK.release()
     out('INFO', 'Configs re-loaded.')
 
@@ -390,14 +390,14 @@ def startBots():
 
 def establishBot(sitename):
     '''Does some preliminary checks.
-    Creates a new autoBOT instance and connects it to irc.
+    Creates a new AutoBot instance and connects it to irc.
     '''
 
     # Need to check if there is sufficient regexp and credentials present
 
     if sitename in G.RUNNING.keys():
-        out('INFO', 'The autoBOT for this site is already running')
-        return 'The autoBOT for this site is already running'
+        out('INFO', 'The AutoBot for this site is already running')
+        return 'The AutoBot for this site is already running'
 
     _re = G.NETWORKS[sitename]['regex']
     server = _re.get('server', '')
@@ -441,11 +441,11 @@ def establishBot(sitename):
                 break
 
     G.LOCK.acquire()
-    G.RUNNING[sitename] = autoBOT(sitename, G.NETWORKS[sitename])
+    G.RUNNING[sitename] = AutoBot(sitename, G.NETWORKS[sitename])
     G.LOCK.release()
 
     if shared:
-        G.RUNNING[sitename].setSharedConnection(G.RUNNING[shared])
+        G.RUNNING[sitename].set_shared_connection(G.RUNNING[shared])
         return 'Connecting to %s by piggybacking on %s\'s connection' % (
             sitename,
             shared)
@@ -513,26 +513,6 @@ def getDriveInfo(drive):
             out('ERROR', 'Unknown filesystem as it seems...')
 
     return 1.00, 1.00
-
-
-def freeSpaceOK():
-    global lastFSCheck
-    drive = SETUP.get('setup', 'drive')
-    limit = SETUP.get('setup', 'freepercent')
-    _now = datetime.datetime.now()
-    if not lastFSCheck:
-        lastFSCheck = _now
-    elif _now - lastFSCheck > datetime.timedelta(seconds=900):
-        # if we haven't run this check in the last 15 minutes,
-        # then run it, otherwise it's too soon!
-        free, percent = getDriveInfo(drive)
-        out('DEBUG', 'Free HD space: %s' % free)
-        if percent > limit:  # if we are still within the limit
-            return True
-        else:
-            return False
-    else:  # if we've already checked within the last 15 minutes
-        return True
 
 
 def dlCookie(downloadID, site, cj, target, network=False, name=''):
@@ -931,7 +911,7 @@ def download(downloadID, site, location=False, network=False, target=False,
         if notify:
             sendNotify(site, announce, filterName, filename)
         if network:
-            network.sendMsg(statusmsg, target)
+            network.send_msg(statusmsg, target)
         G.LOCK.release()
         return (True, statusmsg)
     else:
@@ -941,7 +921,7 @@ def download(downloadID, site, location=False, network=False, target=False,
         out('ERROR', _msg, site)
         if network:
             _msg = 'Download error (%s:%s): %s' % (site, downloadID, statusmsg)
-            network.sendMsg(_msg, target)
+            network.send_msg(_msg, target)
         G.LOCK.release()
         return (False, statusmsg)
 
@@ -1110,7 +1090,7 @@ def sendNotify(site, announce, filter, filename):
     sent = False
     notify_server = SETUP.get('notification', 'server')
     for net in G.RUNNING.itervalues():
-        if net.getBotName() == notify_server:
+        if net.get_bot_name() == notify_server:
             _msg = 'Messaging %s with an IRC notification.'
             out('INFO', _msg % SETUP.get('notification', 'nick'), site)
 
@@ -1120,7 +1100,7 @@ def sendNotify(site, announce, filter, filename):
                 'filter': filter,
                 'file': filename
             })
-            net.sendMsg(_msg, SETUP.get('notification', 'nick'))
+            net.send_msg(_msg, SETUP.get('notification', 'nick'))
             sent = True
 
     if not sent:
@@ -1253,17 +1233,19 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_error(500)
 
 
-class autoBOT( ):
-    """A class for connecting to an IRC network, joining an announce channel, and watching for releases to download"""
-    
+class AutoBot(object):
+    """A class for connecting to an IRC network,
+    joining an announce channel,
+    and watching for releases to download.
+    """
+
     def __init__(self, name, info):
-        """init this shit, yo"""
-        out('DEBUG', 'autoBOT: '+name+' started',site=name)
+        out('DEBUG', 'AutoBot: %s started' % name, site=name)
         self.name = name
         self.lastannounce = None
         self.lastannouncetext = ""
         self.attempt = 0
-        self.ownernetwork = None 
+        self.ownernetwork = None
         self.ownertarget = None
         self.havesendwhois = False
         self.havesendwhoami = False
@@ -1278,36 +1260,34 @@ class autoBOT( ):
         self.filters = info['filters']
         self.toalias = info['toalias']
         self.fromalias = info['fromalias']
-        #self.aliases = info[]
-        #for key, value in info['aliases'].items():
-        #    self.aliases[value] = key
-        self.announcehistory = list()
-        self.threads = list()
+        self.announcehistory = []
+        self.threads = []
         self.connection = None
-        self.who = list()
-        self.partPhrase = ":I leave because I want to!"
-        self.joined = False  #have we already joined the channels we're supposed to after connect?
-        self.reg = dict()
+        self.who = []
+        self.partPhrase = ':I leave because I want to!'
+        # have we already joined the channels we're supposed to after connect?
+        self.joined = False
+        self.reg = {}
         self.resistant = False
-        self.ircreg = re.compile("\x0f|\x1f|\x02|\x03(?:[\d]{1,2}(?:,[\d]{1,2})?)?", re.UNICODE)
-        #self.ircreg = re.compile('||(\\d){0,2}')
+        self.ircreg = re.compile(
+            "\x0f|\x1f|\x02|\x03(?:[\d]{1,2}(?:,[\d]{1,2})?)?",
+            re.UNICODE)
+
         for announce in info['regex']['announces'].split(', '):
             self.reg[announce] = re.compile(info['regex'][announce])
+
         self.checkTorrentFolders(False)
-        if '!' in self.creds['nickowner']:
-            self.creds['nickowner'] = self.creds['nickowner'][self.creds['nickowner'].index('!')+1:]
-        
-        self.advancedfilters = False
-        if "advancefilters" in self.creds:
-            self.advancedfilters = True
-                    
-            
-        G.LOCK.acquire()   
-        irc.add_global_handler('pubmsg', self.handlePubMessage)
-        irc.add_global_handler('privmsg', self.handlePrivMessage)
-        irc.add_global_handler('welcome', self.handleWelcome)
+
+        nickowner = self.creds['nickowner']
+        if '!' in nickowner:
+            self.creds['nickowner'] = nickowner[nickowner.index('!') + 1:]
+
+        G.LOCK.acquire()
+        irc.add_global_handler('pubmsg', self.handle_pub_message)
+        irc.add_global_handler('privmsg', self.handle_priv_message)
+        irc.add_global_handler('welcome', self.handle_welcome)
         irc.add_global_handler('nicknameinuse', self.handleNickInUse)
-        irc.add_global_handler('invite', self.handleInvite)
+        irc.add_global_handler('invite', self.handle_invite)
         irc.add_global_handler('whoisuser', self.handleWhoIs)
         irc.add_global_handler('whoischannels', self.handleWhoIs)
         irc.add_global_handler('whoisserver', self.handleWhoIs)
@@ -1318,18 +1298,21 @@ class autoBOT( ):
         irc.add_global_handler('currenttopic', self.handleCurrentTopic)
         irc.add_global_handler('error', self.handleError)
         irc.add_global_handler('pong', self.handlePong)
-        irc.add_global_handler('nosuchnick',self.handlenosuchnick) #ping,REMOVED from below: 'nomotd', 'motd', 'luserme', 'motdstart', 'endofinfo', 'motd2', 'endofmotd','featurelist','myinfo','n_global', 'n_local',  
-        self.what_events = ["pubnotice","quit","kick","mode",'whoreply','endofwho','statskline', 'part', 'join', 'topicinfo', 'statsqline', 'statsnline', 'statsiline', 'statscommands', 'statscline', 'tracereconnect', 'statslinkinfo', 'notregistered', 'created', 'endofnames', 'statsuptime', 'notopic', 'statsyline', 'endofstats', 'uniqopprivsneeded', 'cannotsendtochan', 'adminloc2', 'adminemail', 'luserunknown', 'luserop', 'luserconns', 'luserclient', 'adminme', 'adminloc1', 'luserchannels', 'toomanytargets', 'listend', 'toomanychannels', 'statsoline', 'invitelist', 'endofinvitelist', 'nosuchchannel', 'inviting', 'summoning', 'exceptlist', 'endofexceptlist', 'noorigin', 'nosuchserver', 'nochanmodes', 'endofbanlist', 'yourebannedcreep', 'passwdmismatch', 'keyset', 'needmoreparams', 'nopermforhost', 'alreadyregistered', 'tryagain', 'endoftrace', 'tracelog', 'notonchannel', 'noadmininfo', 'umodeis', 'endoflinks', 'nooperhost', 'fileerror', 'wildtoplevel', 'usersdisabled', 'norecipient', 'notexttosend', 'notoplevel', 'info', 'infostart', 'whoisoperator', 'whoisidle', 'whoischanop', 'whowasuser', 'users', 'usersstart', 'time', 'nousers', 'endofusers', 'servlist', 'servlistend', 'youwillbebanned', 'badchannelkey', 'serviceinfo', 'endofservices', 'service', 'youreoper', 'usernotinchannel', 'list', 'none', 'liststart', 'noservicehost', 'channelmodeis', 'away', 'banlist', 'links', 'channelcreate', 'closing', 'closeend', 'usersdontmatch', 'killdone', 'traceconnecting', 'tracelink', 'traceunknown', 'tracehandshake', 'traceuser', 'traceoperator', 'traceservice', 'traceserver', 'traceclass', 'tracenewtype', 'userhost', 'ison', 'unaway', 'nowaway', 'nologin', 'yourhost', 'rehashing', 'statslline', 'summondisabled', 'umodeunknownflag', 'bannedfromchan', 'useronchannel', 'restricted', 'cantkillserver', 'chanoprivsneeded', 'noprivileges', 'badchanmask', 'statshline', 'unknownmode', 'inviteonlychan', 'channelisfull', 'version', 'unknowncommand', 'nickcollision', 'myportis', 'banlistfull', 'erroneusnickname', 'unavailresource', 'nonicknamegiven']
-        for value in self.what_events:
+        irc.add_global_handler('nosuchnick', self.handlenosuchnick)
+        for value in G.ALL_EVENTS:
             irc.add_global_handler(value, self.handleAllDebug)
-        #Warn if nickowner is empty!
+
+        # Warn if nickowner is empty!
         if self.creds['nickowner'] == '':
-                out('WARNING',"Nickowner on network '%s' is blank!"%self.name,site=self.name)
+            out('WARNING',
+                'Nickowner on network "%s" is blank!' % self.name,
+                site=self.name)
+
         # Create a server object, connect and join the channel
         self.connection = irc.server()
         G.LOCK.release()
-        
-    def saveNewConfigs(self, info):
+
+    def save_new_configs(self, info):
         self.regex = info['regex']
         self.creds = info['creds']
         self.setup = info['setup']
@@ -1339,149 +1322,182 @@ class autoBOT( ):
         self.fromalias = info['fromalias']
         for announce in info['regex']['announces'].split(', '):
             self.reg[announce] = re.compile(info['regex'][announce])
+
         self.checkTorrentFolders(None)
-        
-    def setSharedConnection(self, othernetwork):
-        #this means we are using another bot's connection, so don't bother 
-        self.piggyback = othernetwork.piggyback
+
+    def set_shared_connection(self, other_network):
+        #this means we are using another bot's connection, so don't bother
+        self.piggyback = other_network.piggyback
         self.piggyback.append(self.name)
-        self.connection = othernetwork.connection
-        havejoined = False
+        self.connection = other_network.connection
+        have_joined = False
         for site in self.piggyback:
             if G.RUNNING[site].joined:
-                havejoined = True
-        if havejoined:
+                have_joined = True
+        if have_joined:
             self.logintochannels(self.connection, None)
-                        
-    def getBotName(self):
+
+    def get_bot_name(self):
         return self.name
-        
+
     def checkTorrentFolders(self, target):
-        #global EXIT
-        for filter in self.filters.keys():
-            if self.filters[filter]['active'] == '1':
-                if self.filters[filter].has_key('watch') and self.filters[filter]['watch'] != '':       
+        for key, _filter in self.filters.iteritems():
+            if _filter['active'] == '1':
+                _watch = _filter.get('watch', '')
+                if _watch != '':
                     try:
-                        if not os.path.isdir( self.filters[filter]['watch'] ):
-                            os.makedirs( self.filters[filter]['watch'] )
-                    except Exception, e:
+                        if not os.path.isdir(_watch):
+                            os.makedirs(_watch)
+                    except Exception as e:
                         out('ERROR', e)
                         if target:
-                            self.sendMsg("Error: There was a problem with the custom watch folder for filter '%s'. It will be ignored. : '%s'"%(filter,self.filters[filter]['watch']) , target)
-                            self.filters[filter]['watch'] = ''
-        if self.creds.has_key('watch') and self.creds['watch'] != '':       
+                            _msg = ('Error: There was a problem with the '
+                                    'custom watch folder for filter "%s". '
+                                    'It will be ignored. : "%s"' % (key,
+                                                                    _watch))
+                            self.send_msg(_msg, target)
+                            _filter['watch'] = ''
+
+        _watch = self.creds.get('watch', '')
+        if _watch != '':
             try:
-                if not os.path.isdir( self.creds['watch'] ):
-                    os.makedirs( self.creds['watch'] )
-            except Exception, e:
+                if not os.path.isdir(_watch):
+                    os.makedirs(_watch)
+            except Exception as e:
                 out('ERROR', e)
                 if target:
-                    self.sendMsg("Error: There was a problem with the custom watch folder for site '%s'. It will be ignored. : '%s'"%(filter,self.creds['watch']) , target)
+                    _msg = ('Error: There was a problem with the custom watch '
+                            'folder for site "%s". It will be ignored. '
+                            ': "%s"') % (key, _watch)
+                    self.send_msg(_msg, target)
                     self.creds['watch'] = ''
+
+        torrentdir = self.setup.get('torrentdir')
+        if torrentdir is None:
+            _msg = ('Setup option "torrentDir" is missing from setup.conf. '
+                    'So let\'s put it in there, mmmmkay?')
+            out('ERROR', _msg)
+            raw_input('This program will now exit (okay): ')
+            G.EXIT = True
+            sys.exit()
+
         try:
-            if not os.path.isdir( self.setup['torrentdir'] ):
-                os.makedirs( self.setup['torrentdir'] )
-        except os.error, e:
-            out('ERROR', 'torrentDir: %s caused %s'%(self.setup['torrentdir'],e))
-            raw_input("This program will now exit (okay): ")
+            if not os.path.isdir(torrentdir):
+                os.makedirs(torrentdir)
+
+        except os.error as e:
+            out('ERROR', 'torrentDir: %s caused %s' % (torrentdir, e))
+            raw_input('This program will now exit (okay): ')
             G.EXIT = True
             sys.exit()
-        except KeyError, e:
-            out('ERROR', "Setup option 'torrentDir' is missing from setup.conf. So let's put it in there, mmmmkay?")
-            raw_input("This program will now exit (okay): ")
-            G.EXIT = True
-            sys.exit()
-        except Exception, e:
+
+        except Exception as e:
             out('ERROR', e)
             raw_input("This program will now exit (okay): ")
             G.EXIT = True
             sys.exit()
-                        
+
     def connect(self):
-        """Connect to the IRC network and join the appropriate channels"""
-        if not self.name in G.RUNNING.keys():
+        """Connect to the IRC network and join the appropriate channels."""
+        if self.name not in G.RUNNING.keys():
             return
-        out('DEBUG','piggyback is %s' %self.piggyback, site=self.name)
+
+        out('DEBUG', 'piggyback is %s' % self.piggyback, site=self.name)
         for key in self.piggyback:
             if key in G.RUNNING:
                 G.RUNNING[key].joined = False
-                out('DEBUG','Reset self.joined for %s' %key, site=self.name)
+                out('DEBUG', 'Reset self.joined for %s' % key, site=self.name)
+
         self.attempt += 1
         connerr = False
         self.pingsent = False
         if self.attempt > 1:
-            out('INFO', 'Connection attempt number %d' %self.attempt, site=self.name)
+            out('INFO',
+                'Connection attempt number %d' % self.attempt,
+                site=self.name)
+
         try:
-            if 'ssl' in self.regex and self.regex['ssl'] == '1':
-                cssl = True
-            else:
-                cssl = False
-            if 'port' in self.regex:
+            cssl = (self.regex.get('ssl') == '1')
+            if 'port' in self.regex and self.regex['port'].isdigit():
                 cport = int(self.regex['port'])
             else:
                 cport = 6667
-            out('INFO',"Connecting to the server: %s on port: %s SSL: %s" %(self.regex['server'],cport,cssl),site=self.name)
-            if 'tempbotnick' in self.creds:
-                botnick = self.creds['tempbotnick']
+
+            _msg = 'Connecting to the server: %s on port: %s SSL: %s'
+            _msg = _msg % (self.regex['server'], cport, cssl)
+            out('INFO', _msg, site=self.name)
+
+            botnick = self.creds.get('tempbotnick') or self.creds['botnick']
+            password = self.creds.get('ircpassword')
+
+            if 'ircusesignon' in self.creds:
+                self.connection.connect(self.regex['server'],
+                                        cport,
+                                        botnick,
+                                        password,
+                                        ircname=self.creds['username'],
+                                        ssl=cssl)
             else:
-                botnick = self.creds['botnick']  
-            if 'ircpassword' in self.creds:
-                password = self.creds['ircpassword']
-            else:
-                password = None
-            
-            #if self.name != 'waffles':
-            if "ircusesignon" in self.creds:
-                self.connection.connect(self.regex['server'], cport, botnick, password, ircname=self.creds['username'], ssl=cssl)
-            else:
-                self.connection.connect(self.regex['server'], cport, botnick, ircname=self.creds['username'], ssl=cssl)
-#                kwargs = {'ircname':self.creds['username'], 'ssl':cssl}
-#                thread.start_new_thread(self.connection.connect,(self.regex['server'], cport, botnick),kwargs)
-            #elif self.name == 'waffles':
-                #self.connection.connect(self.regex['server'], cport, botnick, ircname=self.creds['botnick'], ssl=cssl)
-            
-            
-        except irclib.ServerConnectionError, e:
-            out('ERROR','Server Connection Error: %s' %repr(e),site=self.name)
+                self.connection.connect(self.regex['server'],
+                                        cport,
+                                        botnick,
+                                        ircname=self.creds['username'],
+                                        ssl=cssl)
+
+        except irclib.ServerConnectionError as e:
+            out('ERROR', 'Server Connection Error: %r' % e, site=self.name)
             connerr = True
-        except irclib.ServerNotConnectedError, e:
-            out('ERROR','Server Not Connected Error: %s' %repr(e.message()),site=self.name)
+        except irclib.ServerNotConnectedError as e:
+            out('ERROR',
+                'Server Not Connected Error: %r' % e.message(),
+                site=self.name)
             connerr = True
-        
+
         if connerr:
             if self.attempt > 10:
                 connerr = False
-                out('ERROR', 'Failed to connect to server %s:%s after retrying %s times, aborting connecting.' %(self.regex['server'], str(cport),str(self.attempt)), site=self.name)
-                
+                _msg = ('Failed to connect to server %s:%s after retrying %s '
+                        'times, aborting connecting.') % (self.regex['server'],
+                                                          cport,
+                                                          self.attempt)
+                out('ERROR', _msg, site=self.name)
+
                 for site in self.piggyback:
-                    out('DEBUG', 'Removing %s from the running networks' %site, site=self.name)
+                    out('DEBUG',
+                        'Removing %s from the running networks' % site,
+                        site=self.name)
+
                     if site in G.RUNNING:
                         G.RUNNING[site].disconnect()
                         G.LOCK.acquire()
                         del G.RUNNING[site]
                         G.LOCK.release()
                     else:
-                        out('ERROR','Site name %s was not found in G.RUNNING' %site, site=self.name)
+                        out('ERROR',
+                            'Site name %s was not found in G.RUNNING' % site,
+                            site=self.name)
 
             else:
-                out('INFO', 'Retrying in %d seconds' %int(math.pow(2, self.attempt)),site=self.name)
-                self.connection.execute_delayed(int(math.pow(2, self.attempt)), self.connect)
-        
+                _retry_time = int(math.pow(2, self.attempt))
+                out('INFO',
+                    'Retrying in %d seconds' % _retry_time,
+                    site=self.name)
+                self.connection.execute_delayed(_retry_time, self.connect)
+
         else:
-            #ok, lets try to add the call later stuff:
             self.attempt = 0
             self.connection.execute_delayed(10, self.testtimeout)
 
-    
     def disconnect(self):
         if len(self.piggyback) == 1:
-            self.connection.disconnect("pyWHATauto %s - http://bot.whatbarco.de"%VERSION)
-        
-        irc.remove_global_handler('pubmsg', self.handlePubMessage)
-        irc.remove_global_handler('privmsg', self.handlePrivMessage)
-        irc.remove_global_handler('welcome', self.handleWelcome)
+            self.connection.disconnect(
+                'pyWHATauto %s - http://bot.whatbarco.de' % VERSION)
+
+        irc.remove_global_handler('pubmsg', self.handle_pub_message)
+        irc.remove_global_handler('privmsg', self.handle_priv_message)
+        irc.remove_global_handler('welcome', self.handle_welcome)
         irc.remove_global_handler('nicknameinuse', self.handleNickInUse)
-        irc.remove_global_handler('invite', self.handleInvite)
+        irc.remove_global_handler('invite', self.handle_invite)
         irc.remove_global_handler('whoisuser', self.handleWhoIs)
         irc.remove_global_handler('whoischannels', self.handleWhoIs)
         irc.remove_global_handler('whoisserver', self.handleWhoIs)
@@ -1492,531 +1508,745 @@ class autoBOT( ):
         irc.remove_global_handler('currenttopic', self.handleCurrentTopic)
         irc.remove_global_handler('error', self.handleError)
         irc.remove_global_handler('pong', self.handlePong)
-        irc.remove_global_handler('nosuchnick',self.handlenosuchnick)
-        for value in self.what_events:
+        irc.remove_global_handler('nosuchnick', self.handlenosuchnick)
+        for value in G.ALL_EVENTS:
             irc.remove_global_handler(value, self.handleAllDebug)
-        
-        self.pingsent = False
-        
-    def shouldDownload(self, m, filtertype):
-        i = 1 
-        release = dict();        
-        for str in self.regex[filtertype+'format'].split(', '):
-            release[str] = m.group(i) #create the announcement/release format loaded from regex.conf
-            i += 1
-        #these will save the key/values that cause the filter to fail
-        badkey = ''
-        for filter in self.filters.keys(): #for each filter
-            filter_section_ok = True
-            out('FILTER','Checking filter section \'%s\'' %filter,site=self.name)
-            if self.filters[filter]['active'] == '1':
-                if 'filtertype' in self.filters[filter] and self.filters[filter]['filtertype'] == filtertype or len(self.regex[filtertype+'format'].split(', ')) == 1:
-                    for key, value in self.filters[filter].items(): #for each individual filter option within each filter section
-                        if filter_section_ok: # this will be set to False if any filters are not met
-                            if key in self.regex['tags'] or key in self.regex['not_tags']: # if the filter tag is an allowed tag
-                                if not self.isTagOK(key, value, release, filtertype): #is the release item matched in this filter?
-                                    filter_section_ok = False #if a filter option doesn't match, then the filter section does not match
-                                    badkey = key
-                                    break #and break out. Otherwise keep going!
-                    if filter_section_ok: #if every filter option has passed within this filter, then the section is ok.
-                        out('INFO','Filter %s matches'%filter,site=self.name)
-                        dir = self.setup['torrentdir']
-                        if self.filters[filter].has_key('watch') and self.filters[filter]['watch'] is not None:
-                            dir = self.filters[filter]['watch']
-                        return dir, filter #if this entire filter has passed all it's tests, then download it! (pass the directory where the torrent should be saved)
-                    #Format the output of the failed filter depending what was wrong
-                    try:
-                        if badkey == 'all_tags':
-                            out('INFO','Filter \'%s\' failed because the release did not match %s with \'%s\''%(filter, badkey, m.group(self.regex[filtertype+'format'].split(', ').index('tags'.replace('not_',''))+1)),site=self.name)
-                        elif badkey in self.regex['tags']:
-                            out('INFO','Filter \'%s\' failed because the release did not match %s with \'%s\''%(filter, badkey, m.group(self.regex[filtertype+'format'].split(', ').index(badkey.replace('not_',''))+1)),site=self.name)
-                        elif badkey in self.regex['not_tags']:
-                            out('INFO','Filter \'%s\' failed because the release contained \'%s\' which is in %s'%(filter, m.group(self.regex[filtertype+'format'].split(', ').index(badkey.replace('not_',''))+1), badkey),site=self.name)
-                    except ValueError, e:
-                        out('ERROR', 'There was an error trying to output why the filter did not match. %s'%e)
-                else:
-                    out('INFO','Filter \'%s\' is not of type: %s' %(filter,filtertype),site=self.name)
-            else:
-                out('INFO','Filter \'%s\' is not active'%(filter),site=self.name)        
-        return False, False  # otherwise, all filters failed the tests, so don't download
 
-    def isTagOK(self, key, value, release, filtertype):
-        if key == 'size': #if the filter includes a size limiter, just return true since we check it later anyway
+        self.pingsent = False
+
+    def should_download(self, m, filtertype):
+        release = {}
+        group_names = self.regex[filtertype + 'format'].split(', ')
+        for i, group_name in enumerate(group_names):
+            # create the announcement/release format loaded from regex.conf
+            release[group_name] = m.group(i)
+
+        # these will save the key/values that cause the filter to fail
+        badkey = ''
+        for filter_name, _filter in self.filters.iteritems():
+            filter_section_ok = True
+            out('FILTER',
+                'Checking filter section \'%s\'' % filter_name,
+                site=self.name)
+
+            if _filter['active'] == '1':
+                _type = _filter.get('filtertype')
+                if _type == filtertype or len(group_names) == 1:
+                    # for each filter option within each filter section
+                    for key, value in _filter.items():
+                        # this will be set to False if any filters are not met
+                        if filter_section_ok:
+                            tags = self.regex['tags']
+                            not_tags = self.regex['not_tags']
+                            # if the filter tag is an allowed tag
+                            if key in tags or key in not_tags:
+                                # is the release item matched in this filter?
+                                tag_ok = self.is_tag_ok(key,
+                                                        value,
+                                                        release,
+                                                        filtertype)
+                                if not tag_ok:
+                                    #if a filter option doesn't match,
+                                    # then the filter section does not match
+                                    filter_section_ok = False
+                                    badkey = key
+                                    break
+
+                    # if every filter option has passed within this filter,
+                    # then the section is ok.
+                    if filter_section_ok:
+                        out('INFO',
+                            'Filter %s matches' % filter_name,
+                            site=self.name)
+                        torrentdir = self.setup['torrentdir']
+                        if _filter.get('watch') is not None:
+                            torrentdir = _filter['watch']
+                        return torrentdir, key
+
+                    # Format the output of the failed filter
+                    try:
+                        _msg = None
+                        if badkey == 'all_tags':
+                            tag = m.group(group_names.index('tags') + 1)
+                            _msg = ('Filter \'%s\' failed because the release '
+                                    'did not match %s with \'%s\'')
+                            _msg = _msg % (filter_name,
+                                           badkey,
+                                           tag)
+
+                        elif badkey in self.regex['tags']:
+                            _index = group_names.index(
+                                badkey.replace('not_', ''))
+                            bad_value = m.group(_index + 1)
+                            _msg = ('Filter \'%s\' failed because the release '
+                                    'did not match %s with \'%s\'')
+                            _msg = _msg % (filter_name,
+                                           badkey,
+                                           bad_value)
+
+                        elif badkey in self.regex['not_tags']:
+                            _index = group_names.index(
+                                badkey.replace('not_', ''))
+                            bad_value = m.group(_index + 1)
+                            _msg = ('Filter \'%s\' failed because the release '
+                                    'contained \'%s\' which is in %s')
+                            _msg = _msg % (filter_name,
+                                           bad_value,
+                                           badkey)
+
+                        if _msg:
+                            out('INFO', _msg, site=self.name)
+
+                    except ValueError as e:
+                        _msg = ('There was an error trying to output why the '
+                                'filter did not match. %s') % e
+                        out('ERROR', _msg)
+
+                else:
+                    _msg = 'Filter \'%s\' is not of type: %s' % (filter_name,
+                                                                 filtertype)
+                    out('INFO', _msg, site=self.name)
+
+            else:
+                out('INFO',
+                    'Filter \'%s\' is not active' % (filter_name),
+                    site=self.name)
+
+        return False, False
+
+    def is_tag_ok(self, key, value, release, filtertype):
+        """Checks a given `key` in a filter and its `value`.
+        Returns True if the release matches the filter key, otherwise False.
+        """
+        # we check size later on
+        if key == 'size':
             return True
-        #key = filter key, value = filter value
-        if key in release.keys() or key == "all_tags" and 'tags' in release.keys():# and release[key] is not None: # Check to make sure the key is in the release announcement
-            if value == '1': #if the filter tag is a toggle option, just check that the option exists in the release.
-#                i = self.regex[filtertype+'format'].split(', ').index(key)+1
-                if release[key] is not None:
-#                    if m.group(i):
-                    out('FILTER','Detected \'%s\', which you wanted.' %(release[key]),site=self.name)
-                    return True
-            elif value == '0': #if the filter tag is a toggle option, just check that the option does NOT exist in the release.
-#                i = self.regex[filtertype+'format'].split(', ').index(key)+1
-#                if m.group(i):
-                if release[key] is None:
-                    out('FILTER','Detected \'%s\', which you did not want.' %(release[key]),site=self.name)
-                    return True
-            elif value.lstrip().rstrip() == '': #test to make sure that the values for the filter option exist, if it's just blank then return true
+
+        keys = release.keys()
+
+        if key in keys or (key == 'all_tags' and 'tags' in keys):
+            # test to make sure that the values for the filter option exist,
+            # if it's just blank then return true
+            if not value.strip():
                 return True
-            elif key == 'tags' and release[key] is not None:  #if the filter option is "tags", search through it for that tag, don't do a re.match.
-                try:
-                    for commastr in value.split(','):
-                        for str in commastr.split('\n'):
-                            str = str.lstrip().rstrip()
-                            if str != '':
-                                if str[0] != '@':
-                                    retags = re.findall('[\w\._-]+', release[key])
-                                    for xt in retags:
-                                        if str.lower() == xt.lower():
-                                            out('FILTER',"Detected %s match using '%s' in %s" %(key,str,release[key]),site=self.name)
-                                            return True
-                                elif str[0] == '@' and re.search(str[1:].lower(), release[key].lower().lstrip()):
-                                    out('FILTER',"Detected %s match using '%s' in %s" %(key,str,release[key]),site=self.name)
-                                    return True
-                                else:
-                                    out('DEBUG',"Didn't detect %s match using %s in %s" %(key, str,release[key]),site=self.name)
-                    out('FILTER',"Didn't detect match in %s" %(key),site=self.name)
-                except Exception, e:
-                    out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
-                    pass
-            elif key == 'all_tags' and release['tags'] is not None:
-                try:
-                    for commastr in value.split(','):
-                        for str in commastr.split('\n'):
-                            str = str.lstrip().rstrip()
-                            if str != '':
-                                if str.lower() not in release['tags'].lower():
-                                    out('FILTER',"Didn't detect match using %s. Announcement is missing '%s'."%(key, str),site=self.name)
-                                    return False
-                    out('FILTER',"Detected match using all_tags.", site=self.name)
+
+            release_val = release[key]
+            if release_val is not None:
+                release_val = release_val.strip().lower()
+
+            # looking for option exists in the release
+            if value == '1':
+                if release_val is not None:
+                    out('FILTER',
+                        'Detected "%s", which you wanted.' % release_val,
+                        site=self.name)
                     return True
-                except Exception, e:
-                    out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
-            else: #if it's not a toggle option, size option, or tags option, check to make sure the values match
-                if release[key] is not None:
+
+            # looking for option does not exist in release
+            elif value == '0':
+                if release_val is None:
+                    out('FILTER',
+                        'Detected "%s", which you did not want.' % release_val,
+                        site=self.name)
+                    return True
+
+            # if the filter option is "tags", search through it for that tag
+            elif key == 'tags' and release_val is not None:
+                tags = []
+                for commastr in value.split(','):
+                    tags.extend(commastr.split('\n'))
+
+                try:
+                    for tag in tags:
+                        tag = tag.strip().lower()
+                        if not tag:
+                            continue
+
+                        if tag[0] == '@':
+                            tag = tag[1:]
+                            val = release_val.strip()
+                            if re.search(tag, val):
+                                _msg = 'Detected %s match using "%s" in %s'
+                                _msg = _msg % (key, tag, release_val)
+                                out('FILTER', _msg, site=self.name)
+                                return True
+                            else:
+                                continue
+
+                        else:
+                            retags = re.findall('[\w\._-]+', release_val)
+                            for xt in retags:
+                                if tag == xt:
+                                    _msg = 'Detected %s match using "%s" in %s'
+                                    _msg = _msg % (key, tag, release_val)
+                                    out('FILTER', _msg, site=self.name)
+                                    return True
+                            continue
+
+                        _msg = 'Did not detect %s match using "%s" in %s'
+                        _msg = _msg % (key, tag, release_val)
+                        out('FILTER', _msg, site=self.name)
+
+                except Exception as e:
+                    _msg = ('Tag error; tag: %s; key: %s; release_val: %s; '
+                            'value: %s; error: %s')
+                    _msg = _msg % (tag, key, release_val, value, e)
+                    out('ERROR', _msg, site=self.name)
+
+            # all tags match
+            elif key == 'all_tags' and release['tags'] is not None:
+                release_tags = release['tags'].lower()
+                tags = []
+                for commastr in value.split(','):
+                    tags.extend(commastr.split('\n'))
+
+                try:
+                    for tag in tags:
+                        tag = tag.strip().lower()
+                        if not tag:
+                            continue
+
+                        if tag not in release_tags:
+                            _msg = ('Did not detect match using %s. '
+                                    'Announcement is missing "%s"')
+                            _msg = _msg % (key, tag)
+                            out('FILTER', _msg, site=self.name)
+                            return False
+
+                    out('FILTER',
+                        'Detected match using all_tags.',
+                        site=self.name)
+                    return True
+
+                except Exception as e:
+                    _msg = ('Tag error; tag: %s; key: %s; release_val: %s; '
+                            'value: %s; error: %s')
+                    _msg = _msg % (tag, key, release_val, value, e)
+                    out('ERROR', _msg, site=self.name)
+
+            # if it's not a toggle option, size option, or tags option,
+            # just check to make sure the values match
+            elif release_val is not None:
+                vals = []
+                for commastr in value.split(','):
+                    vals.extend(commastr.split('\n'))
+
+                try:
+                    for val in vals:
+                        val = val.strip().lower()
+                        if not val:
+                            continue
+
+                        if (val[0] == '@' and
+                                re.match(val[1:], release_val)):
+                            _msg = 'Detected %s match using "%s" in %s'
+                            _msg = _msg % (key, val, release_val)
+                            out('FILTER', _msg, site=self.name)
+                            return True
+
+                        elif val == release_val:
+                            _msg = 'Detected %s match using "%s" in %s'
+                            _msg = _msg % (key, val, release_val)
+                            out('FILTER', _msg, site=self.name)
+                            return True
+
+                        else:
+                            _msg = ('Did not detect %s match using "%s" '
+                                    'in %s')
+                            _msg = _msg % (key, val, release_val)
+                            out('FILTER', _msg, site=self.name)
+
+                    out('FILTER',
+                        'Did not detect match in %s' % key,
+                        site=self.name)
+
+                except Exception as e:
+                    _msg = ('Tag error; val: %s; key: %s; release_val: %s; '
+                            'value: %s; error: %s')
+                    _msg = _msg % (val, key, release_val, value, e)
+                    out('ERROR', _msg, site=self.name)
+
+        # not_filter options
+        elif 'not_' in key:
+            nkey = key.replace('not_', '')
+            release_val = release.get(nkey)
+            if release_val is not None:
+                release_val = release_val.strip().lower()
+
+                vals = []
+                for commastr in value.split(','):
+                    vals.extend(commastr.split('\n'))
+
+                # if the not_filter option is not_tags,
+                # search the values don't match them
+                if nkey == 'tags':
                     try:
-                        for commastr in value.split(','):
-                            for str in commastr.split('\n'):
-                                str = str.lstrip().rstrip()
-                                if str != '':
-                                    if str[0] != '@' and str.lower() == release[key].lower():
-                                        out('FILTER',"Detected %s match using '%s' in %s" %(key,str,release[key]),site=self.name)
-                                        return True
-                                    elif str[0] == '@' and re.match(str[1:].lower(), release[key].lower().lstrip()):
-                                        out('FILTER',"Detected %s match using '%s' in %s" %(key,str,release[key]),site=self.name)
-                                        return True
-                                    else:
-                                        out('DEBUG',"Didn't detect %s match using '%s' in %s" %(key, str, release[key]),site=self.name)
-                        out('FILTER',"Didn't detect match in %s" %(key),site=self.name)
-                    except Exception, e:
-                        out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
-        elif "not_" in key: # how about if it's a not_filter option?
-            if key.replace('not_','') in release.keys() and release[key.replace('not_','')] is not None:
-                nkey = key.replace('not_','')
-                if nkey == 'tags': #if the not_filter option is not_tags, search the values don't match them
+                        for tag in vals:
+                            tag = tag.strip.lower()
+
+                            if tag[0] == '@':
+                                tag = tag[1:]
+                                val = release_val.strip()
+                                if re.search(tag, val):
+                                    _msg = ('Detected %s present in %s, which '
+                                            'is disallowed by %s')
+                                    _msg = _msg % (tag, nkey, key)
+                                    out('FILTER', _msg, site=self.name)
+                                    return False
+                                else:
+                                    continue
+
+                            else:
+                                retags = re.findall('[\w\._-]+', release_val)
+                                for xt in retags:
+                                    if tag == xt:
+                                        _msg = ('Detected %s present in %s, '
+                                                'which is disallowed by %s')
+                                        _msg = _msg % (tag, nkey, key)
+                                        out('FILTER', _msg, site=self.name)
+                                        return False
+                                continue
+
+                    except Exception as e:
+                        _msg = ('Tag error; tag: %s; key: %s; '
+                                'release_val: %s; value: %s; error: %s')
+                        _msg = _msg % (tag, key, release_val, value, e)
+                        out('ERROR', _msg, site=self.name)
+
+                else:
                     try:
-                        for commastr in value.split(','):
-                            for str in commastr.split('\n'):
-                                str = str.lstrip().rstrip()      
-                                if str[0] != '@':
-                                    retags = re.findall('[\w\._-]+', release[nkey])
-                                    for xt in retags:
-                                        if str.lower() == xt.lower():
-                                            out('FILTER',"Detected %s present in %s, which is disallowed by %s" %(str, nkey, key),site=self.name)
-                                            return False
-                                elif str[0] == '@' and re.search(str[1:].lower(), release[nkey].lower().lstrip()):
-                                    out('FILTER',"Detected %s present in %s, which is disallowed by %s" %(str, nkey, key),site=self.name)
-                                    return False
-                    except Exception, e:
-                        out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[key], value, e),site=self.name)
-                        pass
-                else: #otherwise it's not multiple values to be searched, so just match it
-                    try:
-                        for commastr in value.split(','):
-                            for str in commastr.split('\n'):
-                                str = str.lstrip().rstrip()
-                                if str[0] != '@' and str.lower() == release[nkey].lower():
-                                    out('FILTER',"Detected %s present in %s, which is in %s" %(str, nkey, key),site=self.name)
-                                    return False
-                                elif str[0] == '@' and re.match(str[1:].lower(), release[nkey].lower().lstrip()):
-                                    out('FILTER',"Detected %s present in %s, which is in %s " %(str, nkey, key),site=self.name)
-                                    return False
-                    except Exception, e:
-                        out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[key], value, e),site=self.name)
-                        pass
-            out('FILTER',"Didn't detect any values present in \'%s\'" %(key),site=self.name)
-            return True           
-        else:  
-            out('FILTER','\'%s\' was required but not found in this release' %(key),site=self.name)
+                        for val in vals:
+                            val = val.strip().lower()
+                            if not val:
+                                continue
+
+                            if (val[0] == '@' and
+                                    re.match(val[1:], release_val)):
+                                _msg = ('Detected %s present in %s, which is '
+                                        'disallowed by %s')
+                                _msg = _msg % (val, nkey, key)
+                                out('FILTER', _msg, site=self.name)
+                                return False
+
+                            elif val == release_val:
+                                _msg = ('Detected %s present in %s, which is '
+                                        'disallowed by %s')
+                                _msg = _msg % (val, nkey, key)
+                                out('FILTER', _msg, site=self.name)
+                                return False
+
+                    except Exception as e:
+                        _msg = ('Tag error; val: %s; key: %s; '
+                                'release_val: %s; value: %s; error: %s')
+                        _msg = _msg % (val, key, release_val, value, e)
+                        out('ERROR', _msg, site=self.name)
+
+            out('FILTER',
+                'Did not detect any values present in "%s"' % key,
+                site=self.name)
+            return True
+        else:
+            out('FILTER',
+                '"%s" was required but not found in this release' % key,
+                site=self.name)
             return False
-        
-    def handleannounce(self, connection, e, cleanedmsg):
+
+    def handle_announce(self, connection, e, cleanedmsg):
         global temp
         self.announcehistory.append(cleanedmsg)
-        #print "GOT A MESSAGE FROM DRONE!\n"
-        while len(self.announcehistory) >= int(self.regex['announcelines']):
+
+        announce_lines = int(self.regex['announce_lines'])
+        while len(self.announcehistory) >= announce_lines:
             msg = ''
-            for i in range(0,int(self.regex['announcelines'])):
+            for i in range(announce_lines):
                 msg += self.announcehistory[i]
+
             args = {}
-            args["text"] = msg
-            args["type"] = e.eventtype()
-            args["source"] = e.source()
-            args["channel"] = e.target()
-            args["event"] = e
+            args['text'] = msg
+            args['type'] = e.eventtype()
+            args['source'] = e.source()
+            args['channel'] = e.target()
+            args['event'] = e
+
             if G.TESTING:
-                self.processMessages(msg, args)
+                self.process_messages(msg, args)
+
             else:
                 for th in self.threads:
-                    if th.isAlive() is not True:
+                    if not th.isAlive():
                         del self.threads[self.threads.index(th)]
-                        
-                self.threads.append(threading.Thread(target=self.processMessages, args=(msg, args), name="pubmsg subthread"))
+
+                th = threading.Thread(target=self.process_messages,
+                                      args=(msg, args),
+                                      name='pubmsg subthread')
+                self.threads.append(th)
                 self.threads[-1].setDaemon(1)
                 self.threads[-1].start()
+
             del self.announcehistory[0]
-    
-    
-    def handlepubMSG(self, connection, e, cleanedmsg):
-        if e.source()[e.source().index('!')+1:].lower() == self.creds['nickowner'].lower() or re.search(self.creds['nickowner'].lower(),e.source().lower()): #if the message comes from the owner of the bot, then do these following commands
-            if self.creds['nickowner'].lower() != '': #if nickowner isn't empty!
-                if e.arguments()[0][0] == '%': #quick preliminary check to see if it's a command
-                    r = random.randrange(0,301)
-                    if r == 11:
-                        self.sendMsg("No! And you can't make me!",e.target())
-                        self.resistant = True
-                    elif r == 200:
-                        self.sendMsg("You are such a slave driver. Seriously. Can't a bot relax around here?",e.target())
-                        self.handleOwnerMessage(e.arguments()[0], e.target(), e.source()[:e.source().index('!')])
-                    elif r == 300:
-                        if e.target()[0] == '#':
-                            self.sendMsg("What? I'm sick of you. Screw this!", e.target())
-                            self.partChannel(e.target())
-                            time.sleep(2)
-                            self.joinChannel(e.target())
-                            self.sendMsg("Hah! Fooled you.", e.target())
-                            self.handleOwnerMessage(e.arguments()[0], e.target(), e.source()[:e.source().index('!')])
-                    else:
-                        if self.resistant:
-                            self.sendMsg("Alright... Fine....",e.target())
-                            self.resistant = False
-                        self.handleOwnerMessage(e.arguments()[0], e.target(), e.source()[:e.source().index('!')])
-        else:
-            if self.setup['chatter'] == '1' or self.setup['chatter'].lower() == 'true':
-                print '%s:%s:%s:%s' %(self.name, e.target(), e.source()[0:e.source().index('!')-1], e.arguments()[0])
-                
-        brain = False
-        for jf in G.OWNER:
-            if jf in e.source():
-                brain = True
-        if brain:
-            quotes = ["I think so, %s, but where are we going to find a duck and a hose at this hour?","I think so %s, but where will we find an open tattoo parlor at this time of night?","Wuh, I think so, %s, but if we didn't have ears, we'd look like weasels.","Uh... yeah, %s, but where are we going to find rubber pants our size?","Sure, %s, but how are we going to find chaps our size?","Uh, I think so, %s, but we'll never get a monkey to use dental floss.","Uh, I think so %s, but this time, you wear the tutu.","I think so, %s, but culottes have a tendency to ride up so.","I think so, %s, but if we covered the world in salad dressing wouldn't the aspargus feel left out?","I think so, %s, but if they called them 'Sad Meals', kids wouldn't buy them!","I think so, %s, but me and Pippi Longstocking -- I mean, what would the children look like?","I think so, %s, but what would Pippi Longstocking look like with her hair straight?","I think so, %s, but this time you put the trousers on the chimp.","Well, I think so, %s, but I can't memorize a whole opera in Yiddish.","I think so, %s, but there's still a bug stuck in here from last time.","Uh, I think so, %s, but I get all clammy inside the tent.","I think so, %s, but I don't think Kaye Ballard's in the union.","Yes, I am!","I think so, %s, but, the Rockettes? I mean, it's mostly girls, isn't it?","I think so, %s, but pants with horizontal stripes make me look chubby.","Well, I think so -POIT- but where do you stick the feather and call it macaroni?","Well, I think so, %s, but pantyhose are so uncomfortable in the summertime.","Well, I think so, %s, but it's a miracle that this one grew back.","Well, I think so, %s, but first you'd have to take that whole bridge apart, wouldn't you?","Well, I think so, %s, but 'apply North Pole' to what?","I think so, %s, but 'Snowball for Windows'?","Well, I think so, %s, but snort no, no, it's too stupid!","Umm, I think so, Don Cerebro, but, umm, why would Sophia Loren do a musical?","Umm, I think so, %s, but what if the chicken won't wear the nylons?","I think so, %s, but isn't that why they invented tube socks?","Well, I think so %s, but what if we stick to the seat covers?","I think so %s, but if you replace the 'P' with an 'O', my name would be Oinky, wouldn't it?","Oooh, I think so %s, but I think I'd rather eat the Macarena.","Well, I think so hiccup, but Kevin Costner with an English accent?","I think so, %s, but don't you need a swimming pool to play Marco Polo?","Well, I think so, %s, but do I really need two tongues?","I think so, %s, but we're already naked.","Well, I think so, %s, but if Jimmy cracks corn, and no one cares, why does he keep doing it?","I think so, %s NARF, but don't camels spit a lot?","I think so, %s, but how will we get a pair of Abe Vigoda's pants?","I think so, %s, but Pete Rose? I mean, can we trust him?","I think so, %s, but why would Peter Bogdanovich?","I think so, %s, but isn't a cucumber that small called a gherkin?","I think so, %s, but if we get Sam Spade, we'll never have any puppies.","I think so, Larry, and um, %s, but how can we get seven dwarves to shave their legs?","I think so, %s, but calling it pu-pu platter? Huh, what were they thinking?","I think so, %s, but how will we get the Spice Girls into the paella?","I think so, %s, but if we give peas a chance, won't the lima beans feel left out?","I think so, %s, but I am running for mayor of Donkeytown and Tuesdays are booked.","I think so, %s, but if we had a snowmobile, wouldn't it melt before summer?","I think so, %s, but what kind of rides do they have in Fabioland?","I think so, %s, but can the Gummi Worms really live in peace with the Marshmallow Chicks?","Wuh, I think so, %s, but wouldn't anything lose its flavor on the bedpost overnight?","I think so, %s, but three round meals a day wouldn't be as hard to swallow.","I think so, %s, but if the plural of mouse is mice, wouldn't the plural of spouse be spice?","Umm, I think so, %s, but three men in a tub? Ooh, that's unsanitary!","Yes, but why does the chicken cross the road, huh, if not for love? I do not know.","Wuh, I think so, %s, but I prefer Space Jelly.","Yes %s, but if our knees bent the other way, how would we ride a bicycle?","Wuh, I think so, %s, but how will we get three pink flamingos into one pair of Capri pants?","I think so, %s, but Tuesday Weld isn't a complete sentence.","I think so, %s, but why would anyone want to see Snow White and the Seven Samurai?","I think so, %s, but then my name would be Thumby.","I think so, %s, but I find scratching just makes it worse.","I think so, %s, but shouldn't the bat boy be wearing a cape?","I think so, %s, but why would anyone want a depressed tongue?","Um, I think so, %s, but why would anyone want to Pierce Brosnan?","Methinks so, %s, verily, but dost thou think Pete Rose by any other name would still smell as sweaty?","I think so, %s, but wouldn't his movies be more suitable for children if he was named Jean-Claude van Darn?","Wuh, I think so, %s, but will they let the Cranberry Duchess stay in the Lincoln Bedroom?","I think so, %s, but why does a forklift have to be so big if all it does is lift forks?","I think so, %s, but if it was only supposed to be a three hour tour, why did the Howells bring all their money?","I think so, %s, but Zero Mostel times anything will still give you Zero Mostel.","I think so, %s, but if we have nothing to fear but fear itself, why does Eleanor Roosevelt wear that spooky mask?","I think so, %s, but what if the hippopotamus won't wear the beach thong?","Um, I think so, %s-2, but a show about two talking lab mice? Hoo! It'll never get on the air.","I think so, %s, but Lederhosen won't stretch that far.","Yeah, but I thought Madonna already had a steady bloke!","I think so, %s, but what would goats be doing in red leather turbans?","I think so, %s... but how would we ever determine Sandra Bullock's shoe size?","Yes, %s, I think so. But how do we get Twiggy to pose with an electric goose?","I think so, %s. But if I put on two tutu's, would I really be wearing a four-by-four?","I dunno, %s. Maybe it's all part of some huge, cosmic plot formula!","I think so, %s, but wouldn't mustard make it sting?","I think so, %s, but can you use the word 'asphalt' in polite society?","I think so, %s! (Sprays his breath)","I think so, Mr. %s, but if the sun'll come out tomorrow, what's it doing right now?","I think so, %s, but aren't we out of shaving cream?","Oh yes, %s! Remind me to tape all our phone calls!","Um, I think so, %s, but I hear Hillary is the jealous type.","I think so, %s, but Madonna's stock is sinking.","I think so, %s. But does 'Chunk o' Cheesy's' deliver packing material?","I think so, %s, but if we're Danish, where's the cream cheese? Narf!","I think so, Bwain, but I don't think newspaper will fit in my underoos.","Uh, I think so, %s--but after eating newspaper all day, do I really need the extra fiber?","I think so, %s! But isn't a dreadlock hair extension awfully expensive?","I think so, %s. But will anyone other than Eskimos buy blubber-flavored chewing gum?","I think so, %s, but the ointment expired weeks ago!","I think so, %s. But would the villains really have gotten away with it, if it weren't for those pesky kids and their dog?","Uh, I think so %s, but how are we gonna teach a goat to dance with flippers on?","Wuhh... I think so, %s! But let's use safflower oil this time! It's ever so much healthier!","Wuh... I think so, %s. But Cream of Gorilla Soup-well, we'd have to sell it in awfully big cans, wouldn't we?","I think so, %s. But if he left chocolate bullets instead of silver, they'd get all runny and gooey!","Yes, %s, I think so, but do nuts go with pudding?","I think so, %s, but a codpiece made from a real fish would get smelly after a while, wouldn�t it?","I think... so, %s... *gag* ...but I didn't know Annette used peanut butter in that way.","I think so, %s, but do those roost in this neighborhood?","I think so, %s, but is the world ready for angora bellbottoms? I mean I can see wearing them inside out, but that would--","I think so, Commander %s from Outer Space! But do we have time to grease the rockets?","I think so, Doctor. But are these really the legs of a show girl?","Whuh... I think so, %s. But this time I get to play the dishwasher repairman!","I think so, %sius. But what if a sudden wind were to blow up my toga?","I think so, %s. But Trojans won�t arrive on the scene for another 300 years.","I think so, %s... but where would a yak put PVC tubing?","Whuh... I think so, %s, but... but if Charlton Heston doesn't eat Soylent Green, what will he eat?","I think so, %s, but Ben Vereen never answered our proposition.","I think so, %s, but wouldn't an itsy-bitsy, teeny-weenie, yellow polka-dot one-piece be better suited for my figure?","I think so, %s, but won't it go straight to my hips?!","I think so, Ali-%s! But isn't it cheating to use glue?","Whuu... I think so, %sPan! But if running shoes had little feet, wouldn't they need their own shoes?","I think so, %s. But what if the Earl of Essex doesn't like burlap pantaloons?","I think so, %s, but should we use dishwashing liquid or cooking oil?","I think so, %s! We'll dress up like biker dudes and infiltrate the \"Hades Ladies.\" Then we'll convince them to hold a meeting inside the corn palace. Narf! The resulting carbon-monoxide buildup will allow you to complete your energy-making device and shortly after, you will rule the world!","I�m honored, %s... er, what was my idea again?","(holding one of the pointy pieces from Sorry! and the bottle of Slick 'n Slide) I think so, Br...","I think so, %s, but would Danish flies work just as well?","We think so, %s! But dressing like twins is so tacky.","I think so, %s, but practicing docking procedures with a goat at zero G's-it's never been done!","I think so, %s! But shouldn't we let the silk worms finish the boxer shorts before we put them on?","I think so, %s! You draw the bath and I'll fetch the alka-seltzers and candles!","I think so, %s. But the real trick will be getting Demi Moore out of the creamed corn!","Wuhhh... I think so, %s, but if a ham can operate a radio, why can't a pig set a VCR?","I think so, %s, you'd think [Lyndon Johnson would] have left room for baby-kissing, wouldn't you?","I think so, %s! But won't Mr. Hoover notice a missing evening gown?","I think so, %s! But what's the use of having a heart-shaped tattoo if it's going to be covered by hair?","I think so, %s, but couldn't the constant use of a henna rinse lead to premature baldness?","I think so, %s. Just make sure we don't swallow each other's bubbles!","I think so, %s! But ruby-studded stockings would be mighty uncomfortable wouldn't they?","I think so, %s, but if I have my portrait drawn, will we have time to make it to the lifeboats?","I think so, %s! But is Chippendale's ready for 'The Full Pinky?'","I think so, %s! But do I have what it take to be the 'Lord of the Dance'?","I think so, %s! How much deeper would the ocean be if there weren't sponges down there?","Oh, I think so, %s! But doing a clog dance in actual clogs will give me awful blisters.","I think so, %s, but nose rings are kinda pass� by now.","I think so, %s, but where are we going to get a trained octopus at this time of night?","I think so, %s! But no more eels in jelly for me, thanks-I like my gelatin after lunch.","I think so, %s, but I didn�t know 90210 was a real zip code! Will Tori be there?","Narf! I think so, %s, but what if the Telechubbies don't fight fair?","I think so, %s. But even if we found a tuxedo to fit a blowfish, who would marry it?","Um, no, Cranky Mouseykin, not even in the story you made up.","I think so, but where is a fish?","I think so, %s. But if Pinocchio were carved out of bacon it wouldn't be the same story, would it?","Um, I think so, %s, but wasn't Dicky Ducky released on his own recognaissance?","I think so, %s, but Pepper Ann makes me sneeze.","I think so, %s. But suppose we do the hokey pokey and turn ourselves around, is that what it's really all about?","(sung) I think so, %s, but just how will we get the weasel to hold still?","I think so, %s, but how are we going to get the bacon flavoring into the pencils?","I think so, %s, but instant karma's always so lumpy.","I think so, %s, but she'd never leave Mickey."]
-            line = "are you pondering what i'm pondering?".split(' ')
-            msg = cleanedmsg.replace(self.creds['botnick'],'').replace('whatbots', '').lstrip().replace(', ','').lower().split(' ')
-            if cleanedmsg.split(' ')[0] == self.creds['botnick']+',' or cleanedmsg.split(' ')[0] == self.creds['botnick']:
-                if msg == line:
-                    out = quotes[random.randint(0, len(quotes)-1)]
-                    if "%s" in out:
-                        self.sendMsg(out %e.source()[:e.source().index('!')], e.target())
-                    else:
-                        self.sendMsg(out, e.target())
-            elif cleanedmsg.split(' ')[0].lower() == 'whatbots,' or cleanedmsg.split(' ')[0].lower() == 'whatbots':
-                time.sleep(random.uniform(0,5))
-                if msg == line:
-                    out = quotes[random.randint(0, len(quotes)-1)]
-                    if "%s" in out:
-                        self.sendMsg(out %e.source()[:e.source().index('!')], e.target())
-                    else:
-                        self.sendMsg(out, e.target())
-        if G.TESTING and e.source()[0:10].lower() == 'johnnyfive' and e.target().lower() == '#pywhatbot':
-            self.announcehistory.append(cleanedmsg)
-            #print "GOT A MESSAGE FROM DRONE!\n"
-            while len(self.announcehistory) >= int(self.regex['announcelines']):
-                msg = ''
-                for i in range(0,int(self.regex['announcelines'])):
-                    msg += self.announcehistory[i]
-                args = {}
-                args["text"] = msg
-                args["type"] = e.eventtype()
-                args["source"] = e.source()
-                args["channel"] = e.target()
-                args["event"] = e
-                if G.TESTING:
-                    self.processMessages(msg, args)
-                else:
-                    temp = threading.Thread(target=self.processMessages, args=(msg, args), name="pubmsg subthread")
-                    temp.setDaemon(1)
-                    temp.start()
-                del self.announcehistory[0] 
-    
-    def processMessages(self, msg, args):
-        announce = msg
+
+    def handle_pubmsg(self, connection, e, cleanedmsg):
+        source = e.source().lower()
+        short_source = source[source.index('!') + 1:]
+        nick_source = source[:source.index('!')]
+        nickowner = self.creds['nickowner'].lower()
+        message = e.arguments()[0]
+
+        is_owner = (short_source == nickowner) or re.search(nickowner, source)
+        if is_owner and nickowner != '' and message.startswith('%'):
+            self.handleOwnerMessage(message, e.target(), nick_source)
+        elif self.setup.get('chatter', '').lower() in ('1', 'true'):
+            _msg = '%s:%s:%s:%s' % (self.name,
+                                    e.target(),
+                                    nick_source,
+                                    message)
+            out('DEBUG', _msg)
+
+    def process_messages(self, announce, args):
         matched = False
+        download_id = None
+
         for filtertype, reg in self.reg.items():
             m = reg.search(announce)
-            if m:
-                matched = True
-                #should add announcement to SQLdb here!
-                #G.DB.addAnnounce(self.name, announce, m.group(self.regex[filtertype+'format'].split(', ').index('downloadID')+1))
-                G.Q.put((self.name, announce, m.group(self.regex[filtertype+'format'].split(', ').index('downloadID')+1)))
-                
-                location = None
-                out('INFO','**** Announce found: '+m.group(0),site=self.name)
-                #out('DEBUG','Announce found: '+m.group(1),site=self.name)
-                out('FILTER','This is a(n) %s release' %(filtertype),site=self.name)
-                location, filter = self.shouldDownload(m, filtertype)
-                downloadID = m.group(self.regex[filtertype+'format'].split(', ').index('downloadID')+1)
-                if location:
-                    out('INFO','(%s) >> Download starting from %s'%(downloadID,self.name),self.name)
-                    gmail=False                    
-                    #if the filter is set to send an email on capture
-                    if 'email' in self.filters[filter] and self.filters[filter]['email'] == '1':
-                        gmail = True
-                    #or the global email toggle is set, and the filter email option isn't disabled
-                    elif self.notif['email'] == '1':
-                        #if the filter has the email option at all
-                        if 'email' in self.filters[filter]:
-                            #and it's not set to 0
-                            if self.filters[filter]['email'] != '0':
-                                gmail = True
-                        #if the filter does not have the email option
-                        else:
-                            gmail = True
-                            
-                    notifi = False
-                    #if the filter is set to send a notification on capture
-                    if 'notify' in self.filters[filter] and self.filters[filter]['notify'] == '1':
-                        notifi = True
-                    elif self.notif['message'] == '1':
-                        if 'notify' in self.filters[filter]:
-                            if self.filters[filter]['notify'] != '0':
-                                notifi = True
-                        else:
-                            notifi = True
-                            
-                    if not freeSpaceOK():
-                        out('ERROR','You have reached your free space limit. Torrent is being placed in an overflow folder. TO COME',site=self.name)
-                    
-                    if self.advancedfilters == True:
-                        #check site filters, just returns true/false!
-                        pass
-                                
-                    #does the announcement include a size limit?
-                    sL=False
-                    if "size" in self.filters[filter] and self.filters[filter]['size'].rstrip().lstrip() != '':
-                        sL=self.filters[filter]['size']
-                            
-                    ret = download(downloadID, self.name, location=location, email=gmail, filterName=filter, announce=announce, notify=notifi, sizeLimits=sL)   
-                    G.LOCK.acquire()
-                    G.REPORTS[self.name]['seen'] += 1
-                    if ret[0]: G.REPORTS[self.name]['downloaded'] += 1
-                    G.LOCK.release()     
-                else:
-                    G.LOCK.acquire()
-                    G.REPORTS[self.name]['seen'] += 1
-                    G.LOCK.release()
-                    out('FILTER','There was no match with any %s filters' %(filtertype),site=self.name)
-    
+            if not m:
+                break
+
+            matched = True
+            groups = self.regex[filtertype+'format'].split(', ')
+            download_id = m.group(groups.index('downloadID') + 1)
+
+            # throw announcement into database
+            G.Q.put((self.name,
+                     announce,
+                     download_id))
+
+            out('INFO', '**** Announce found: %s' % m.group(0), site=self.name)
+            out('FILTER',
+                'This is a(n) %s release' % filtertype,
+                site=self.name)
+
+            location, filter_key = self.should_download(m, filtertype)
+            if location:
+                _msg = '(%s) >> Download starting from %s'
+                _msg = _msg % (download_id, self.name)
+                out('INFO', _msg, self.name)
+
+                filter_ = self.filters[filter_key]
+
+                gmail = False
+                filter_email = filter_.get('email')
+                # if the filter is set to send an email on capture
+                if filter_email == '1':
+                    gmail = True
+
+                # or the global email toggle is set,
+                # and the filter email option exists and isn't disabled
+                elif self.notif['email'] == '1' and filter_email != '0':
+                    gmail = True
+
+                notifi = False
+                filter_notify = filter_.get('notify')
+                # if the filter is set to send a notification on capture
+                if filter_notify == '1':
+                    notifi = True
+                elif self.notif['message'] == '1' and filter_notify != '0':
+                    notifi = True
+
+                # does the announcement include a size limit?
+                size_limit = False
+                filter_limit = filter_['size'].strip()
+                if filter_limit:
+                    size_limit = filter_limit
+
+                ret = download(download_id,
+                               self.name,
+                               location=location,
+                               email=gmail,
+                               filterName=filter_key,
+                               announce=announce,
+                               notify=notifi,
+                               sizeLimits=size_limit)
+
+                G.LOCK.acquire()
+                G.REPORTS[self.name]['seen'] += 1
+                if ret[0]:
+                    G.REPORTS[self.name]['downloaded'] += 1
+                G.LOCK.release()
+
+            else:
+                G.LOCK.acquire()
+                G.REPORTS[self.name]['seen'] += 1
+                G.LOCK.release()
+                out('FILTER',
+                    'There was no match with any %s filters' % filtertype,
+                    site=self.name)
+
         if not matched:
-        #why isn't this an announce?
+            # why isn't this an announce?
             try:
                 naughty = False
-                if self.regex.has_key('intro'):
-                    for commastr in self.regex['intro'].split(','):
-                        for str in commastr.split('\n'):
-                            str = str.lstrip().rstrip()
-                            if str != '':
-                                if str[0] != '@' and announce.lstrip().lower().startswith(str.lower()):
-                                    naughty = True
-                                elif str[0] == '@' and re.match(str[1:].lower(), announce.lstrip().lower()):
-                                    naughty = True
-                                    #if announce.lstrip().startswith(self.regex['intro'].lstrip()):
-                else:
+                intro_val = self.regex.get('intro')
+
+                if intro_val is None:
                     naughty = True
-                if naughty and 'whatcd' in G.RUNNING:
-                    out('DEBUG',"Naughty announce: " + announce,site=self.name)
-                    G.RUNNING['whatcd'].naughtyAnnounce(announce,self.name)
+
                 else:
-                    out('DEBUG',"NOT naughty: " + announce,site=self.name)
-            except Exception, e:
-                out('ERROR','Exception raised when proccessing naughty announce %s, error: %s' %(announce, repr(e)))
-                pass
+                    intros = []
+                    for commastr in intros:
+                        intros.extend(commastr.split('\n'))
+
+                    for intro in intros:
+                        intro = intro.strip().lower()
+                        clean_announce = announce.strip().lower()
+                        if not intro:
+                            continue
+
+                        if (intro[0] != '@' and
+                                clean_announce.startswith(intro)):
+                            naughty = True
+                        elif (intro[0] == '@' and
+                                re.match(intro[1:], clean_announce)):
+                            naughty = True
+
+                if naughty:
+                    out('DEBUG',
+                        'Naughty announce: %s' % announce,
+                        site=self.name)
+                    if 'whatcd' in G.RUNNING:
+                        G.RUNNING['whatcd'].naughty_announce(announce,
+                                                             self.name)
+
+                else:
+                    out('DEBUG', 'NOT naughty: %s' % announce, site=self.name)
+
+            except Exception as e:
+                _msg = ('Exception raised when proccessing naughty announce '
+                        '%s, error: %r') % (announce, e)
+                out('ERROR', _msg)
+
         else:
             self.lastannounce = datetime.datetime.now()
-            if downloadID:
-                self.lastannouncetext = downloadID
+            if download_id:
+                self.lastannouncetext = download_id
             else:
-                self.lastannouncetext = ""
-                out('ERROR', 'Did not find the download ID in the following announce: %s' %announce, site=self.name)
-                    
-    def stripIRCColors(self,msg):
-        msg = self.ircreg.sub('',msg)
+                self.lastannouncetext = ''
+                _msg = ('Did not find the download ID in the following '
+                        'announce: %s') % announce
+                out('ERROR', _msg, site=self.name)
+
+    def strip_irc_colors(self, msg):
+        msg = self.ircreg.sub('', msg)
         return msg
 
-    def naughtyAnnounce(self, announce, network):
-        self.sendMsg('#whatbot-debug', network + ":" + announce)
+    def naughty_announce(self, announce, network):
+        self.send_msg('#whatbot-debug', network + ":" + announce)
 
-    def sendMsg(self, msg, target):
+    def send_msg(self, msg, target):
         try:
             self.connection.privmsg(target, msg)
-        except irclib.ServerNotConnectedError, e:
-            out('ERROR','Could not send \'%s\' to %s. Error: %s'%(msg,target,repr(e)),site=self.name)
-            
-    def sendWhoIs(self, whonick, ownernetwork, ownertarget):
+        except irclib.ServerNotConnectedError as e:
+            _msg = 'Could not send "%s" to %s. Error: %r'
+            _msg = _msg % (msg, target, e)
+            out('ERROR', _msg, site=self.name)
+
+    def send_whois(self, whonick, ownernetwork, ownertarget):
         self.ownernetwork = ownernetwork
         self.ownertarget = ownertarget
         self.havesendwhois = True
+
         if self.connection.is_connected():
             try:
                 self.connection.whois((whonick,))
-            except irclib.ServerConnectionError, e:
-                out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-            except irclib.ServerNotConnectedError, e:
-                out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
+            except irclib.ServerConnectionError as e:
+                out('ERROR', 'Server connection error: %r' % e, site=self.name)
+            except irclib.ServerNotConnectedError as e:
+                out('ERROR',
+                    'Server not connected error: %r' % e.message(),
+                    site=self.name)
+
         else:
-            G.RUNNING[ownernetwork].sendMsg('Cannot send whois as the bot is currently not connected to the network, try again later.',self.ownertarget)
-            
-    def sendWhoIsall(self, whonick, ownernetwork, ownertarget):
+            G.RUNNING[ownernetwork].send_msg('Cannot send whois as the bot is '
+                                             'currently not connected to the '
+                                             'network, try again later.',
+                                             self.ownertarget)
+
+    def send_whois_all(self, whonick, ownernetwork, ownertarget):
         self.ownernetwork = ownernetwork
         self.ownertarget = ownertarget
         self.havesendwhoisall.append(whonick.lower())
+
         if self.connection.is_connected():
             try:
                 self.connection.whois((whonick,))
-            except irclib.ServerConnectionError, e:
-                out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-            except irclib.ServerNotConnectedError, e:
-                out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
-    
-    def sendWhoAmI(self, ownernetwork, ownertarget):
+            except irclib.ServerConnectionError as e:
+                out('ERROR', 'Server connection error: %r' % e, site=self.name)
+            except irclib.ServerNotConnectedError as e:
+                out('ERROR',
+                    'Server not connected error: %r' % e.message(),
+                    site=self.name)
+
+    def send_whoami(self, ownernetwork, ownertarget):
         self.ownernetwork = ownernetwork
         self.ownertarget = ownertarget
         self.havesendwhoami = True
+
         if self.name == self.piggyback[0]:
             if self.connection.is_connected():
                 try:
                     self.connection.whois((self.connection.real_nickname,))
-                except irclib.ServerConnectionError, e:
-                    out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-                except irclib.ServerNotConnectedError, e:
-                    out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
-                
-    
-    def partChannel(self,channel=None,channels=None):
-        try:
-            if channel is not None:
-                if channel[0] == "#":
-                    self.connection.part(channel,self.partPhrase)
-                else:
-                    self.connection.part("#"+channel,self.partPhrase)
-            elif channels is not None:
-                for channel in channels:
-                    if channel[0] == "#":
-                        self.connection.part(channel,self.partPhrase)
-                    else:
-                        self.connection.part("#"+channel,self.partPhrase)
-        except irclib.ServerConnectionError, e:
-            out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-        except irclib.ServerNotConnectedError, e:
-            out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
-        
-    def joinChannel(self,channel=None,channels=None):
-        try:
-            if channel is not None:
-                if channel[0] == "#":
-                    self.connection.join(channel)
-                else:
-                    self.connection.join("#"+channel)
-            elif channels is not None:
-                for channel in channels:
-                    if channel[0] == "#":
-                        self.connection.join(channel)
-                    else:
-                        self.connection.join("#"+channel)
-        except irclib.ServerConnectionError, e:
-            out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-        except irclib.ServerNotConnectedError, e:
-            out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)   
-            
-    def joinOtherChannels(self):
-        #Join the what.cd-debug channel if you're on the what-network
-        if self.name == 'whatcd':
-            self.connection.join('#whatbot-debug')
-        if 'chanfilter' in self.creds:
-            for xchannel in self.creds['chanfilter'].split(','):
-                for channel in xchannel.split('\n'):
-                    channel=channel.rstrip()
-                    channel=channel.lstrip()
-                    if channel != '':
-                        out('INFO',"Joining channel: %s"%channel,site=self.name)
-                        self.connection.join(channel)
+                except irclib.ServerConnectionError as e:
+                    out('ERROR',
+                        'Server connection error: %r' % e,
+                        site=self.name)
+                except irclib.ServerNotConnectedError as e:
+                    out('ERROR',
+                        'Server not connected error: %r' % e.message(),
+                        site=self.name)
 
-    def handleWelcome(self, connection, e):
-        #out('DEBUG','server regexp: %s, connection.server: %s' %(self.regex['server'], str(connection.server)),site=self.name)
+    def part_channel(self, channel):
+        try:
+            if not channel.startswith('#'):
+                channel = '#' + channel
+            self.connection.part(channel, self.partPhrase)
+
+        except irclib.ServerConnectionError as e:
+            out('ERROR', 'Server connection error: %r' % e, site=self.name)
+        except irclib.ServerNotConnectedError as e:
+            out('ERROR',
+                'Server not connected error: %r' % e.message(),
+                site=self.name)
+
+    def join_channel(self, channel):
+        try:
+            if not channel.startswith('#'):
+                channel = '#' + channel
+            self.connection.join(channel, self.partPhrase)
+
+        except irclib.ServerConnectionError as e:
+            out('ERROR', 'Server connection error: %r' % e, site=self.name)
+        except irclib.ServerNotConnectedError as e:
+            out('ERROR',
+                'Server not connected error: %r' % e.message(),
+                site=self.name)
+
+    def join_other_channels(self):
+        # Join the what.cd-debug channel if you're on the what-network
+        if self.name == 'whatcd':
+            self.join_channel('#whatbot-debug')
+
+        extra_channels = self.creds.get('chanfilter')
+        if extra_channels:
+            for xchannel in extra_channels.split(','):
+                for channel in xchannel.split('\n'):
+                    channel = channel.strip()
+                    if channel:
+                        out('INFO',
+                            'Joining channel: %s' % channel,
+                            site=self.name)
+                        self.join_channel(channel)
+
+    def handle_welcome(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
             self.lastdata = datetime.datetime.now()
             if self.connection.is_connected():
                 if 'tempbotnick' in self.creds:
-                    self.connection.privmsg('nickserv', "GHOST %s %s" %(self.creds['botnick'], self.creds['nickservpass']))
+                    _ghost_msg = 'GHOST %s %s' % (self.creds['botnick'],
+                                                  self.creds['nickservpass'])
+                    self.connection.privmsg('nickserv', _ghost_msg)
                     self.connection.nick(self.creds['botnick'])
                     del self.creds['tempbotnick']
-                out('INFO',"Connected to %s, server calls itself %s." %(self.regex['server'], self.connection.get_server_name()),site=self.name)
+
+                _msg = 'Connected to %s, server calls itself %s.'
+                _msg = _msg % (self.regex['server'],
+                               self.connection.get_server_name())
+                out('INFO', _msg, site=self.name)
+
             else:
-                out('ERROR','Connection was lost. Maybe you were g-lined? Trying again.',site=self.name)
+                _msg = ('Connection was lost. Maybe you were g-lined? '
+                        'Trying again.')
+                out('ERROR', _msg, site=self.name)
                 self.connect()
-            out('INFO','Your bots nickname MUST be registered with nickserv, otherwise it will sit here and do nothing!',site=self.name)
-        #else:
-            #out('ERROR', 'mismatch between connection.server and server regexp.',site=self.name)
-    
-    def handleInvite(self, connection, e):
+
+            _msg = ('Your bot\'s nickname MUST be registered with nickserv, '
+                    'otherwise it will sit here and do nothing!')
+            out('INFO', _msg, site=self.name)
+
+    def handle_invite(self, connection, e):
         if connection == self.connection:
             self.lastdata = datetime.datetime.now()
-            out('DEBUG','Invited by %s (%s, %s) to join %s (announcechannel is %s)' %(str(e.source()), e.source()[e.source().index('!')+1:].lower(), self.regex['botwho'].lower(), str(e.arguments()), self.regex['announcechannel'] ),site=self.name)
-            if e.source()[e.source().index('!')+1:].lower() == self.regex['botwho'].lower() and e.arguments()[0].lower() == self.regex['announcechannel'].lower():
-                out('DEBUG','Joining %s after invite.' %str(e.arguments()[0]) ,site=self.name)
-                self.connection.join(e.arguments()[0])
+            source = e.source()
+            clean_src = source[source.index('!') + 1:].lower()
+            botwho = self.regex['botwho'].lower()
+            announce_chan = self.regex['announcechannel'].lower()
+            invited_chan = e.arguments()[0]
+
+            _msg = 'Invited by %s (%s, %s) to join %s (announce channel is %s)'
+            _msg = _msg % (source,
+                           clean_src,
+                           botwho,
+                           invited_chan,
+                           announce_chan)
+            out('DEBUG', _msg, site=self.name)
+
+            if clean_src == botwho and invited_chan == announce_chan:
+                out('DEBUG',
+                    'Joining %s after invite.' % invited_chan,
+                    site=self.name)
+                self.connection.join(invited_chan)
                 self.joined = True
-                
-    def handlePubMessage(self, connection, e):# Any public message
-        """Handles the messages received by the IRCLIB and figures out WTF to do with them. Probably throws most of them away, cause IRC is full of trash."""
+
+    def handle_pub_message(self, connection, e):
+        """Handles all non-PM messages received by the bot."""
         if connection == self.connection:
             self.lastdata = datetime.datetime.now()
-            cleanedmsg = self.stripIRCColors(e.arguments()[0])
-            #make sure that we always use lower case!
+            cleanedmsg = self.strip_irc_colors(e.arguments()[0])
+            source = e.source()
+            clean_src = source[source.index('!') + 1:].lower()
+            target = e.target().lower()
+            announce_chan = self.regex['announcechannel'].lower()
+
             if 'announcebotwho' in self.regex:
                 who = self.regex['announcebotwho'].lower()
             else:
                 who = self.regex['botwho'].lower()
-            if e.source()[e.source().index('!')+1:].lower() == who and e.target().lower() == self.regex['announcechannel'].lower():
-                self.handleannounce(connection, e, cleanedmsg)
+
+            if clean_src == who and target == announce_chan:
+                self.handle_announce(connection, e, cleanedmsg)
             else:
-                self.handlepubMSG(connection, e, cleanedmsg)
-    
-    def handlePrivMessage(self, connection, e):
+                self.handle_pubmsg(connection, e, cleanedmsg)
+
+    def handle_priv_message(self, connection, e):
         """Handle messages sent through PM."""
         if connection == self.connection and self.piggyback[0] == self.name:
             self.lastdata = datetime.datetime.now()
-            if (e.source()[e.source().index('!')+1:] == self.creds['nickowner'] or re.search(self.creds['nickowner'].lower(),e.source().lower())) and self.creds['nickowner'].lower != '':
-                self.handleOwnerMessage(e.arguments()[0], e.source()[:e.source().index('!')], e.source()[:e.source().index('!')])
+            source = e.source()
+            source_nick = source[:source.index('!')]
+            clean_src = source[source.index('!') + 1:].lower()
+            owner = self.creds['nickowner'].lower()
+            message = e.arguments[0]
+
+            if owner and (clean_src == owner or re.search(owner, source)):
+                self.handleOwnerMessage(message, source_nick, source_nick)
+
             else:
-                out('DEBUG','%s:PM:%s:%s' %(self.name, e.source()[0:e.source().index('!')], e.arguments()[0]),site=self.name)
-    
+                _msg = '%s:PM:%s:%s' % (self.name, source_nick, message)
+                out('DEBUG', _msg, site=self.name)
+
     def handleAction(self, connection, e):
         """Handle messages sent as actions."""
         if connection == self.connection:
             self.lastdata = datetime.datetime.now()
-            cleanedmsg = self.stripIRCColors(e.arguments()[0])
+            cleanedmsg = self.strip_irc_colors(e.arguments()[0])
             #make sure that we always use lower case!
             if 'announcebotwho' in self.regex:
                 who = self.regex['announcebotwho'].lower()
             else:
                 who = self.regex['botwho'].lower()
             if e.source()[e.source().index('!')+1:].lower() == who and e.target().lower() == self.regex['announcechannel'].lower():
-                self.handleannounce(connection, e, cleanedmsg)
+                self.handle_announce(connection, e, cleanedmsg)
             else:
-                self.handlepubMSG(connection, e, cleanedmsg)
-                
+                self.handle_pubmsg(connection, e, cleanedmsg)
+
     def handleWhoIs(self, connection, e):
         if connection == self.connection and (self.havesendwhois or (e.arguments()[0].lower() in self.havesendwhoisall) or self.havesendwhoami):
             self.lastdata = datetime.datetime.now()
@@ -2025,7 +2255,7 @@ class autoBOT( ):
                 if self.havesendwhois:
                     self.havesendwhois = False
                     if self.ownernetwork != None and self.ownertarget != None:
-                        G.RUNNING[self.ownernetwork].sendMsg(self.who,self.ownertarget)
+                        G.RUNNING[self.ownernetwork].send_msg(self.who,self.ownertarget)
                         self.ownernetwork = None
                         self.ownertarget = None
                         self.who = list()
@@ -2036,7 +2266,7 @@ class autoBOT( ):
                         out('ERROR', 'Could not remove from havesendwhoisall, its now: %s' %repr(self.havesendwhoisall), site=self.name)
                     if self.ownernetwork != None and self.ownertarget != None:
                         info = None
-                        if self.who != []: 
+                        if self.who != []:
                             try:
                                 info = eval('{' + self.who[0] + '}')
                             except SyntaxError, e:
@@ -2061,10 +2291,10 @@ class autoBOT( ):
                             status = "Bot is not online"
                         else:
                             status = "%s (whois) != %s (regex.conf)" %(botident, botwho)
-                        
+
                         msg = '%-16s %-15s %-s' %(self.name, botnick, status)
-                        
-                        G.RUNNING[self.ownernetwork].sendMsg(msg,self.ownertarget)
+
+                        G.RUNNING[self.ownernetwork].send_msg(msg,self.ownertarget)
                         if not self.havesendwhoisall:
                             self.ownernetwork = None
                             self.ownertarget = None
@@ -2072,7 +2302,7 @@ class autoBOT( ):
                 elif self.havesendwhoami:
                     self.havesendwhoami = False
                     if self.ownernetwork != None and self.ownertarget != None:
-                        if self.who != []: 
+                        if self.who != []:
                             try:
                                 info = eval('{' + self.who[1] + '}')
                             except SyntaxError, e:
@@ -2100,14 +2330,14 @@ class autoBOT( ):
                             else:
                                 status = 'NOT in announce channel'
                         else:
-                            status = ''    
+                            status = ''
                         msg = '%-16s %-20s %-s' %(self.name, self.regex['announcechannel'], status)
-                        
-                        G.RUNNING[self.ownernetwork].sendMsg(msg,self.ownertarget)
+
+                        G.RUNNING[self.ownernetwork].send_msg(msg,self.ownertarget)
                         self.ownernetwork = None
                         self.ownertarget = None
                         self.who = list()
-                        
+
             elif e.eventtype() == 'whoisuser':
                 self.who.append("'User': '%s', 'Info': %s"%(e.arguments()[0],e.arguments()[1:]))
             elif e.eventtype() == 'whoischannels':
@@ -2116,7 +2346,7 @@ class autoBOT( ):
                 self.who.append("'Server info': %s"%e.arguments()[1:])
             else:
                 self.who.append(e.arguments())
-    
+
     def handleNameReply(self, connection, e):
         if self.connection == connection:
             self.lastdata = datetime.datetime.now()
@@ -2124,10 +2354,10 @@ class autoBOT( ):
             #if 'whatcd' == self.name:
                 #chan = e.arguments()[1]
                 #if chan == "#whatbot-debug":
-                    #self.sendMsg("SuperSecretPW","pyWhatBot")
+                    #self.send_msg("SuperSecretPW","pyWhatBot")
             #elif chan == "#whatbot":
-            #    self.sendMsg("SuperSecretPW","pyWhatBot")
-                
+            #    self.send_msg("SuperSecretPW","pyWhatBot")
+
     def handlePrivNotice(self, connection, e):
         if connection == self.connection:
             self.lastdata = datetime.datetime.now()
@@ -2139,18 +2369,18 @@ class autoBOT( ):
             elif self.piggyback[0] == self.name:
                 if (('please choose a different nick' in e.arguments()[0].lower() ) or ( 'You need to be identified to a registered account to join this channel' in e.arguments()[0].lower() )) and self.joined == False:
                     out('INFO',"Ident request received. Sending identify.",site=self.name)
-                    if self.creds['nickservpass']: 
+                    if self.creds['nickservpass']:
                         self.connection.privmsg("nickserv","identify " + self.creds['nickservpass'])
                 elif 'this nick is owned by someone else' in e.arguments()[0].lower() and self.joined == False:
                     out('INFO',"Ident request received. Sending identify.",site=self.name)
-                    if self.creds['nickservpass']: 
+                    if self.creds['nickservpass']:
                         self.connection.privmsg("nickserv","identify " + self.creds['nickservpass'])
                 elif 'You were forced to join' in e.arguments()[0]:
                     channel = e.arguments()[0][e.arguments()[0].index('#'):]
                     out('INFO','You were forced to join %s'%channel,site=self.name)
             else:
                 out('DEBUG',"(%s)%s:%s" %(e.eventtype(),e.arguments(),e.target()),site=self.name)
-                
+
     def logintochannels(self, connection, e):
         try: #if we are registered with ident
             if 'requiresauth' in self.regex and self.regex['requiresauth'] == '1':
@@ -2188,34 +2418,34 @@ class autoBOT( ):
             if 'cmd' in self.creds and self.creds['cmd'] != '':
                 self.connection.send_raw(self.creds['cmd'])
             self.joined = True
-            
-            self.connection.execute_delayed(1, self.joinOtherChannels)
+
+            self.connection.execute_delayed(1, self.join_other_channels)
 
         except irclib.ServerConnectionError, e:
             out('ERROR','Server Connection Error: %s' %repr(e),site=self.name)
         except irclib.ServerNotConnectedError, e:
             out('ERROR','Server Not Connected Error: %s' %repr(e.message()),site=self.name)
 
-    
+
     def handleCurrentTopic(self, connection, e):
         if connection == self.connection:
             self.lastdata = datetime.datetime.now()
             channel = e.arguments()[0]
-            topic = self.stripIRCColors(e.arguments()[1])
+            topic = self.strip_irc_colors(e.arguments()[1])
             out('INFO','handleCurrentTopic: %s: %s'%(channel, topic),site=self.name)
-    
+
     def handleNickInUse(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
             self.lastdata = datetime.datetime.now()
             if 'ircallowednick' in self.creds and self.joined == False:
                 out('ERROR','The nickname %s was already in use. I cannot join the announce channel without it, so I am disconnecting.' %(self.creds['ircallowednick']),site=self.name)
                 self.disconnect()
-            else:   
+            else:
                 newnick = self.creds['botnick'] +'|' + str(random.randint(1000,3000))
                 out('ERROR','The nickname %s was already in use. You have been renamed as %s.' %(self.creds['botnick'],newnick),site=self.name)
                 self.connection.nick(newnick)
                 self.creds['tempbotnick'] = newnick
-        
+
     def handleError(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
             self.lastdata = datetime.datetime.now()
@@ -2224,12 +2454,12 @@ class autoBOT( ):
             if con:
                 pass
             #this is all here cause for some reason python's SSL or TCP or whatever header checksums are bad, therefore causing the bot to disconnect after sending a NICK command during an initial connection if the current nick is already used. This is to get around that.
-    
+
             if 'closing link' in e.target().lower():
                 self.connection.disconnect('Cause it broke')
                 out('INFO',"Waiting a few seconds before reconnect.",site=self.name)
                 self.connection.execute_delayed(15, self.connect)
-                
+
     def handlePong(self, connection, e):
         #pong received. Shall we bother calculating the lag?
         if connection == self.connection and self.piggyback[0] == self.name:
@@ -2240,13 +2470,13 @@ class autoBOT( ):
                 out('DEBUG','Pong received from %s, roundtrip time %.2f s' %(e.arguments()[0],(timediff.microseconds + (timediff.seconds + timediff.days * 24 * 3600) * 10**6) / 10**6),site=self.name)
             else:
                 out('DEBUG','Pong received from %s, NOT ASKED FOR'  %(e.arguments()[0]),site=self.name)
-    
+
     def handlenosuchnick(self, connection, e):
         #nosuchnick received. Possible reasons: whois / msg someone.
         if connection == self.connection:
             out('DEBUG','nosuchnick received, arguments are %s' %e.arguments(),site=self.name)
-            
-        
+
+
     def handleAllDebug(self, connection, e):
         if connection == self.connection and self.piggyback[0] == self.name:
             self.lastdata = datetime.datetime.now()
@@ -2261,8 +2491,8 @@ class autoBOT( ):
                 if e.eventtype() == 'nosuchnick' and e.arguments()[0].lower() == 'pywhatbot':
                     pass
                 else:
-                    out('DEBUG',"(%s)%s:%s:%s" %(e.eventtype(),e.source(),e.arguments(),e.target()),site=self.name) 
-    
+                    out('DEBUG',"(%s)%s:%s:%s" %(e.eventtype(),e.source(),e.arguments(),e.target()),site=self.name)
+
     def testtimeout(self):
         if self.name in G.RUNNING.keys() or self.connection.is_connected():
             if self.piggyback[0] == self.name:
@@ -2275,11 +2505,11 @@ class autoBOT( ):
                     #out('DEBUG','Testtimeout function called, adding new timer',site=self.name)
                     td =  datetime.datetime.now() - self.lastdata
                     tds = (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
-                    
+
                     err = False
                     if tds > 120:
                         out('DEBUG','ping server as 120 seconds without data have passed',site=self.name)
-                        
+
                         try:
                             self.connection.ping(self.connection.server)
                         except irclib.ServerNotConnectedError, e:
@@ -2290,7 +2520,7 @@ class autoBOT( ):
                             self.connection.execute_delayed(15, self.connect)
                         else:
                             self.pingsent = datetime.datetime.now()
-                    
+
                     if not err: self.connection.execute_delayed(10, self.testtimeout)
             else:
                 out('DEBUG','Piggybacks have shifted: %s - moving execute_delayed to %s' %(repr(self.piggyback),self.piggyback[0]),site=self.name)
@@ -2298,14 +2528,14 @@ class autoBOT( ):
         else:
             out('DEBUG','Can\'t ping, as we are currently not connected to the network',site=self.name)
             self.pingsent = False
-            
-    
+
+
     def handleOwnerMessage(self, msg, target, ownernick):
         """Take commands from the operator. That's right, bow down."""
-        if self.piggyback[0] == self.name:              
+        if self.piggyback[0] == self.name:
             quit = {
                     'help':'Disconnects from all NETWORKS and closes all threads.   [pyWHATauto]',
-                    'cmd':self.fquit                
+                    'cmd':self.fquit
                     }
             whois = {
                         'help':'Returns a whois on the target name and network. Format %whois <network/alias> <nickname>   [pyWHATauto]',
@@ -2321,7 +2551,7 @@ class autoBOT( ):
                         }
             update = {
                     'help':'Updates your regex.conf to the newest version.   [pyWHATauto]',
-                    'cmd':self.fupdate                
+                    'cmd':self.fupdate
                     }
             cmd = {
                 'help':'Sends a raw IRC command through the bot. Format %cmd <network/alias> <IRCCOMMAND> <values>. Please use the pyWHATauto commands if available, otherwise use this. For a list of IRC Commands and how to use them: http://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands.   [pyWHATauto]',
@@ -2329,7 +2559,7 @@ class autoBOT( ):
                 }
             ragequit = {
                         'help':"You're angry, and you're gonna let them know it!",
-                        'cmd':self.fragequite                    
+                        'cmd':self.fragequite
                         }
             filter = {
                     'help':'Allows you to control filter states, as well as list enabled/disabled filters. Type %filter <enable/disable> <filtername> to toggle a filter.    [pyWHATauto]',
@@ -2349,15 +2579,15 @@ class autoBOT( ):
                     }
             reload = {
                     'help':'Reloads all configs.   [pyWHATauto]',
-                    'cmd':self.freload         
+                    'cmd':self.freload
                     }
             nick = {
                     'help':'Changes the bots nickname to whatever you pass it. Does not change what the bot thinks it calls itself, so a %ghost command will ignore your changes.   [pyWHATauto]',
-                    'cmd':self.fnick                
+                    'cmd':self.fnick
                     }
             join = {
                     'help':'Joins the specified channel(s). You can join local channels as well as cross-network. Format %join <network/alias> #<channel> #<channel> ...   [pyWHATauto]',
-                    'cmd':self.fjoin               
+                    'cmd':self.fjoin
                     }
             part = {
                     'help':'Parts the specified channel(s). You can part local channels as well as cross-network. Format %part <network/alias> #<channel> #<channel> ...   [pyWHATauto]',
@@ -2365,7 +2595,7 @@ class autoBOT( ):
                     }
             stats = {
                     'help':'Gives seen and download statistics on each enabled network.   [pyWHATauto]',
-                    'cmd':self.fstats                
+                    'cmd':self.fstats
                     }
             time = {
                     'help':'Outputs the local system time from where the bot resides.   [pyWHATauto]',
@@ -2411,7 +2641,7 @@ class autoBOT( ):
                     'help':'You sir, are an idiot.   [pyWHATauto]',
                     'cmd':self.fhelp
                     }
-            
+
             #The dictionary of commands
             commands = {
                 'quit':quit,
@@ -2444,29 +2674,29 @@ class autoBOT( ):
                 'sites':sites,
                 'version':version,
                 }
-            
+
             cmds = msg.rstrip().split(' ')
             if cmds[0] != '' and cmds[0][0] ==  '%': #test if the msg is a potential command
-                rootcmd = cmds[0][1:] 
+                rootcmd = cmds[0][1:]
                 if rootcmd in commands: #test if it's a real command
                     if len(cmds) > 1: #is this a single part command, or does it have options?
                         if cmds[1] == 'help':
                             #dic.get('a',default)('WHAT','noob')
-                            self.sendMsg(commands[rootcmd]['help'], target)
+                            self.send_msg(commands[rootcmd]['help'], target)
                         else:
                             switches = list()
                             for item in cmds[1:]:
                                 switches.append(item)
                             var = [target, switches, commands, ownernick]
                             stupid = commands[rootcmd]
-                            stupid.get('cmd')(var) 
+                            stupid.get('cmd')(var)
                     else: #this is a single-part message
                         var = [target, None, commands, ownernick]
                         stupid = commands[rootcmd]
                         stupid.get('cmd')(var)
                 else:
-                    self.sendMsg('That is not a valid command. Try %help for the list of available commands.',target)
-            
+                    self.send_msg('That is not a valid command. Try %help for the list of available commands.',target)
+
     def fquit(self, vars):
         out('CMD','quit',site=self.name)
         out('INFO','I have received the quit command!',site=self.name)
@@ -2477,7 +2707,7 @@ class autoBOT( ):
         G.EXIT = True
         G.LOCK.release()
         sys.exit()
-    
+
     def fragequite(self, vars):
         self.partPhrase=":AND I'M NEVER COMING BACK!"
         out('CMD','quit',site=self.name)
@@ -2485,9 +2715,9 @@ class autoBOT( ):
         target = vars[0]
         angorz = ["RRRRrrraaaaggggeee.", "I'm backtracing your IPs right now. You're so dead.", "I'm calling the FBI on you. What's the number, do you know?","I'm going to tell my daddy on you. He's real big where he works. Like an elephant.", "I'm so hacking through your ports right nao!", "FFFFFFFUUUUUUUUUUUUUUU", "You guys are fucking assholes!", "I'M SO ANG0RZ RIGHT NAO!", "STOP TOUCHING ME!", "Fuck this place. I'm way cooler than you.", "Who you gonna call?"]
         from random import choice
-        self.sendMsg(choice(angorz), target)
-        self.sendMsg("BTW, here's a link to my blog: http://perezhilton.com/", target)
-        self.partChannel(target)
+        self.send_msg(choice(angorz), target)
+        self.send_msg("BTW, here's a link to my blog: http://perezhilton.com/", target)
+        self.part_channel(target)
         for bot in G.RUNNING.itervalues():
             bot.disconnect()
         G.LOCK.acquire()
@@ -2495,7 +2725,7 @@ class autoBOT( ):
         G.EXIT = True
         G.LOCK.release()
         sys.exit()
-    
+
     def ffilter (self,vars):
         target = vars[0]
         if vars[1] != None:
@@ -2504,13 +2734,13 @@ class autoBOT( ):
                 G.LOCK.acquire()
                 #if there are any items in the changed filters list
                 if len(G.FILTERS_CHANGED) > 0:
-                    self.sendMsg('Manually toggled filters:',target)
+                    self.send_msg('Manually toggled filters:',target)
                     for key, value in G.FILTERS_CHANGED.items():
-                        self.sendMsg('%s: %s'%(key, value), target)
-                self.sendMsg('Unchanged filters:',target)
+                        self.send_msg('%s: %s'%(key, value), target)
+                self.send_msg('Unchanged filters:',target)
                 for key, value in G.FILTERS.items():
                     if key not in G.FILTERS_CHANGED:
-                        self.sendMsg('%s: %s'%(key, value), target)
+                        self.send_msg('%s: %s'%(key, value), target)
                 G.LOCK.release()
             elif vars[1][0].lower() == 'enable' and len(vars[1]) == 2:
                 #toggle the filter to enable it
@@ -2522,10 +2752,10 @@ class autoBOT( ):
                     if G.FILTERS_CHANGED[vars[1][1].lower()] == G.FILTERS[vars[1][1].lower()]:
                         del G.FILTERS_CHANGED[vars[1][1].lower()]
                     reloadConfigs()
-                    self.sendMsg('Filter %s has been toggled on.   [pyWHATauto]'%vars[1][1].lower(), target)
+                    self.send_msg('Filter %s has been toggled on.   [pyWHATauto]'%vars[1][1].lower(), target)
                 else:
                     #then tell them the filter doesn't exist and how to get a list of filters
-                    self.sendMsg("That filter doesn't exist. Try again!", target)
+                    self.send_msg("That filter doesn't exist. Try again!", target)
                     pass
                 G.LOCK.release()
             elif vars[1][0].lower() == 'disable' and len(vars[1]) == 2:
@@ -2538,18 +2768,18 @@ class autoBOT( ):
                     if G.FILTERS_CHANGED[vars[1][1].lower()] == G.FILTERS[vars[1][1].lower()]:
                         del G.FILTERS_CHANGED[vars[1][1].lower()]
                     reloadConfigs()
-                    self.sendMsg('Filter %s has been toggled off.   [pyWHATauto]'%vars[1][1].lower(), target)
+                    self.send_msg('Filter %s has been toggled off.   [pyWHATauto]'%vars[1][1].lower(), target)
                 else:
                     #the filter doesn't exist
-                    self.sendMsg("That filter doesn't exist. Try again!   [pyWHATauto]", target)
+                    self.send_msg("That filter doesn't exist. Try again!   [pyWHATauto]", target)
                 G.LOCK.release()
             else:
                 #incorrect command, give info
-                self.sendMsg('Incorrect command structure. What does that even mean?   [pyWHATauto]', target)
+                self.send_msg('Incorrect command structure. What does that even mean?   [pyWHATauto]', target)
         else:
             out('CMD','filter, incomplete',site=self.name)
-            self.sendMsg('Filters. Like on cigarettes, except a lot healthier. Try typing %help filter to see how they are used.   [pyWHATauto]', target)
-    
+            self.send_msg('Filters. Like on cigarettes, except a lot healthier. Try typing %help filter to see how they are used.   [pyWHATauto]', target)
+
     def fdisconnect(self, vars):
         target = vars[0]
         if vars[1] is not None:
@@ -2558,74 +2788,74 @@ class autoBOT( ):
             #if it's an alias
             if network.lower() in self.fromalias.keys():
                 network = self.fromalias[network.lower()]
-            
+
                 if network in G.RUNNING:
                     G.RUNNING[network].disconnect()
                     out('DEBUG','piggyback before: %s' %repr(G.RUNNING[network].piggyback),self.name)
                     if len(G.RUNNING[network].piggyback) > 1:
                         G.RUNNING[network].piggyback.remove(network)
-                        G.RUNNING[network].partChannel(G.RUNNING[network].regex['announcechannel'])
-                        self.sendMsg('I have disconnected from %s. However %s use the same connection, so only the announce channel was parted.  [pyWHATauto]'%(network, repr(G.RUNNING[network].piggyback)), target)
+                        G.RUNNING[network].part_channel(G.RUNNING[network].regex['announcechannel'])
+                        self.send_msg('I have disconnected from %s. However %s use the same connection, so only the announce channel was parted.  [pyWHATauto]'%(network, repr(G.RUNNING[network].piggyback)), target)
                         out('DEBUG','piggyback after: %s' %repr(G.RUNNING[network].piggyback),self.name)
                     else:
-                        self.sendMsg('I have disconnected from %s.   [pyWHATauto]'%network, target)
-                        out('DEBUG','piggyback after: %s, %s will be removed' %(repr(G.RUNNING[network].piggyback), network),self.name)                    
+                        self.send_msg('I have disconnected from %s.   [pyWHATauto]'%network, target)
+                        out('DEBUG','piggyback after: %s, %s will be removed' %(repr(G.RUNNING[network].piggyback), network),self.name)
                     G.LOCK.acquire()
                     del G.RUNNING[network]
                     G.LOCK.release()
                 else:
-                    self.sendMsg('I cannot disconnect from %s since the network is not running.   [pyWHATauto]'%network, target)
-                    
+                    self.send_msg('I cannot disconnect from %s since the network is not running.   [pyWHATauto]'%network, target)
+
             else:
-                self.sendMsg('I do not know the network/alias %s. Format: %%disconnect <network>   [pyWHATauto]' %network, target)
+                self.send_msg('I do not know the network/alias %s. Format: %%disconnect <network>   [pyWHATauto]' %network, target)
         else:
-            self.sendMsg('That is not a full command. Format: %disconnect <network>   [pyWHATauto]', target)
-                    
+            self.send_msg('That is not a full command. Format: %disconnect <network>   [pyWHATauto]', target)
+
     def fnick(self, vars):
         if vars[1] != None:
             name = vars[1][0]
             out('CMD','nick change from %s to %s' %(self.connection.nickname, name),site=self.name)
             self.connection.nick(name)
-            
+
     def fwhois(self, vars):
         if vars[1] != None:
             out('DEBUG', 'whois send, number of vars: %d, vars 0, 1: %s, %s ' %(len(vars),repr(vars[0]), repr(vars[1])),site=self.name)
             target = vars[0]
             if len(vars[1]) < 2:
-                self.sendMsg('Incorrect command structure. It should be %whois site nick   [pyWHATauto]', target)
+                self.send_msg('Incorrect command structure. It should be %whois site nick   [pyWHATauto]', target)
             else:
                 name = vars[1][1]
                 network = vars[1][0]
                 if network.lower() in self.fromalias.keys():
                     network = self.fromalias[network.lower()]
-        
+
                     out('CMD','Whois sent for %s on %s'%(name, network),site=self.name)
                     if network in G.RUNNING:
-                        G.RUNNING[network].sendWhoIs(name,self.name,target)
+                        G.RUNNING[network].send_whois(name,self.name,target)
                     else:
-                        self.sendMsg('You are currently not connected to %s, so I cannot send the whois request.   [pyWHATauto]' %network ,target)
+                        self.send_msg('You are currently not connected to %s, so I cannot send the whois request.   [pyWHATauto]' %network ,target)
                 else:
-                    self.sendMsg('I do not know the network/alias %s. Format: %%disconnect <network>   [pyWHATauto]' %network, target)
-                    
-    
+                    self.send_msg('I do not know the network/alias %s. Format: %%disconnect <network>   [pyWHATauto]' %network, target)
+
+
     def fwhoisall(self,vars):
         out('DEBUG','Whoisall was sent.',site=self.name)
         target = vars[0]
-        self.sendMsg('%-16s %-15s %-s' %('Network', 'Botnick', 'Status'), target)
+        self.send_msg('%-16s %-15s %-s' %('Network', 'Botnick', 'Status'), target)
         for key, network in G.RUNNING.items():
             out('CMD','Whois sent for %s on %s'%(network.regex['botname'],key),site=self.name)
-            network.sendWhoIsall(network.regex['botname'],self.name,target)
+            network.send_whois_all(network.regex['botname'],self.name,target)
             if 'announcebotname' in network.regex:
                 out('CMD','Whois sent for %s on %s'%(network.regex['announcebotname'],key),site=self.name)
-                network.sendWhoIsall(network.regex['announcebotname'],self.name,target)
-                
+                network.send_whois_all(network.regex['announcebotname'],self.name,target)
+
     def fwhoami(self,vars):
         out('DEBUG','whoami was sent.',site=self.name)
         target = vars[0]
-        self.sendMsg('%-16s %-20s %-s' %('Network', 'Announce Channel', 'Status'), target)
+        self.send_msg('%-16s %-20s %-s' %('Network', 'Announce Channel', 'Status'), target)
         for key, network in G.RUNNING.items():
             out('CMD','Whois whoami on %s'%key,site=self.name)
-            network.sendWhoAmI(self.name,target)
+            network.send_whoami(self.name,target)
 
     def ffree(self, vars):
         target = vars[0]
@@ -2645,14 +2875,14 @@ class autoBOT( ):
                 out('ERROR',"There was an error. Double check 'drive' in setup.conf. Error: %s" %repr(e),site=self.name)
                 msg = "There was an error. Double check 'drive' in setup.conf."
         if msg != None:
-            self.sendMsg(msg, target)
-    
+            self.send_msg(msg, target)
+
     def freload(self, vars):
         target = vars[0]
         out('CMD','reload',site=self.name)
         reloadConfigs()
-        self.sendMsg('All configs (filters, setup, etc) have been reloaded.   [pyWHATauto]', target)
-        
+        self.send_msg('All configs (filters, setup, etc) have been reloaded.   [pyWHATauto]', target)
+
     def fupdate(self, vars):
         target = vars[0]
         out('CMD','update',site=self.name)
@@ -2670,14 +2900,14 @@ class autoBOT( ):
                     regUpdate.close()
                     localFile.close()
                     reloadConfigs()
-                    self.sendMsg("Your regex.conf file has been updated to the latest version.   [pyWHATauto]", target)
+                    self.send_msg("Your regex.conf file has been updated to the latest version.   [pyWHATauto]", target)
                 else:
-                    self.sendMsg("You are currently running the latest regex.conf file.   [pyWHATauto]", target)
+                    self.send_msg("You are currently running the latest regex.conf file.   [pyWHATauto]", target)
             else:
-                self.sendMsg("You need to update pyWA before you can use the new regex. You are using %s, but %s is required.   [pyWHATauto]"%(VERSION,"v"+str(minversion)), target)
+                self.send_msg("You need to update pyWA before you can use the new regex. You are using %s, but %s is required.   [pyWHATauto]"%(VERSION,"v"+str(minversion)), target)
         except Exception, e:
             out('ERROR',"Something happened when trying to update. %s"%e,site=self.name)
-    
+
     def fjoin(self, vars):
         target= vars[0]
         cmds = vars[1]
@@ -2686,33 +2916,34 @@ class autoBOT( ):
             if cmds[0].lower() in self.fromalias.keys():
                 network = self.fromalias[cmds[0].lower()]
                 if network in G.RUNNING:
-                    G.RUNNING[network].joinChannel(channels=cmds[1:])
-                    self.sendMsg('I am attempting to join %s on %s'%(cmds[1:],network), target)
+                    self.send_msg('I am attempting to join %s on %s'%(cmds[1:],network), target)
                     out('INFO','Joining channels %s on %s'%(cmds[1:],network), site=self.name)
+                    for channel in cmds[1:]:
+                        G.RUNNING[network].join_channel(channel)
                 else:
                     out('INFO','You tried to join a channel on a network (%s) that is not currently running' %network,self.name)
-                    self.sendMsg('I cannot join %s on %s since it is not currently connected   [pyWHATauto]'%(cmds[1:],network), target)
+                    self.send_msg('I cannot join %s on %s since it is not currently connected   [pyWHATauto]'%(cmds[1:],network), target)
             else:
-                self.sendMsg('I do not recognise the network/alias. Try %sites for all available networks   [pyWHATauto]', target)
+                self.send_msg('I do not recognise the network/alias. Try %sites for all available networks   [pyWHATauto]', target)
         else:
-            self.sendMsg('Incorrect format for %join. The format should be %join <network/alias> #<channel> #<channel> ...  [pyWHATauto]', target)
+            self.send_msg('Incorrect format for %join. The format should be %join <network/alias> #<channel> #<channel> ...  [pyWHATauto]', target)
 
 
     def fconnect(self, vars):
         target = vars[0]
         network = vars[1]
-        
+
         out('CMD','connect %s'%network,site=self.name)
         if network is not None:
             for net in network:
                 if net.lower() in self.fromalias.keys():
                     msg = establishBot(self.fromalias[net.lower()])
-                    self.sendMsg(msg, target)
+                    self.send_msg(msg, target)
                 else:
-                    self.sendMsg('I do not recognise the network/alias %s' %net, target)
+                    self.send_msg('I do not recognise the network/alias %s' %net, target)
                     out('DEBUG','Unknown network/alias: %s' %net,site=self.name)
         else:
-            self.sendMsg('Incorrect command structure for %connect, it should be %connect <network> <network2> ....   [pyWHATauto]', target)
+            self.send_msg('Incorrect command structure for %connect, it should be %connect <network> <network2> ....   [pyWHATauto]', target)
 
     def fpart(self, vars):
         target= vars[0]
@@ -2722,17 +2953,18 @@ class autoBOT( ):
             if cmds[0].lower() in self.fromalias.keys():
                 network = self.fromalias[cmds[0].lower()]
                 if network in G.RUNNING:
-                    G.RUNNING[network].partChannel(channels=cmds[1:])
-                    self.sendMsg('I am attempting to part %s on %s'%(cmds[1:],network), target)
+                    self.send_msg('I am attempting to part %s on %s'%(cmds[1:],network), target)
                     out('INFO','Parting channels %s on %s'%(cmds[1:],network), self.name)
+                    for channel in cmds[1:]:
+                        G.RUNNING[network].part_channel(channel)
                 else:
                     out('INFO','You tried to part a channel on a network (%s) that is not currently running' %network,self.name)
-                    self.sendMsg('I cannot part %s on %s since it is not currently connected   [pyWHATauto]'%(cmds[1:],network), target)
+                    self.send_msg('I cannot part %s on %s since it is not currently connected   [pyWHATauto]'%(cmds[1:],network), target)
             else:
-                self.sendMsg('I do not recognise the network/alias. Try %sites for all available networks   [pyWHATauto]', target)
+                self.send_msg('I do not recognise the network/alias. Try %sites for all available networks   [pyWHATauto]', target)
         else:
-            self.sendMsg('Incorrect format for %part. The format should be %part <network/alias> #<channel> #<channel> ...   [pyWHATauto]', target)
-        
+            self.send_msg('Incorrect format for %part. The format should be %part <network/alias> #<channel> #<channel> ...   [pyWHATauto]', target)
+
     def fstats(self, vars):
         target = vars[0]
         #msg = vars[1]
@@ -2743,7 +2975,7 @@ class autoBOT( ):
         sitelen = 4
         lastlen = len('Last Announce')
         idlen = len('DownloadID')
-        
+
         for site, link in G.RUNNING.iteritems():
             try:
                 seen = G.REPORTS[site]['seen']
@@ -2758,8 +2990,8 @@ class autoBOT( ):
                     idlen = len(link.lastannouncetext)
             except KeyError, e:
                 out('ERROR','No reports yet for %s'%e,site=self.name)
-        
-        self.sendMsg('%-*s %*s %*s %*s %*s' %(sitelen+1, 'Site', seenlen +2, 'Seen', downlen +2, 'Down', lastlen +2, 'Last Announce', idlen+2, 'DownloadID'), target)
+
+        self.send_msg('%-*s %*s %*s %*s %*s' %(sitelen+1, 'Site', seenlen +2, 'Seen', downlen +2, 'Down', lastlen +2, 'Last Announce', idlen+2, 'DownloadID'), target)
         for site in sorted(G.RUNNING.iterkeys()):
             try:
                 if G.RUNNING[site].lastannounce:
@@ -2774,16 +3006,16 @@ class autoBOT( ):
                     string += " %d" %seconds + "s"
                 else:
                     string = ""
-                self.sendMsg('%-*s %*s %*s %*s %*s' %(sitelen+1, site, seenlen+2, str(G.REPORTS[site]['seen']), downlen +2, str(G.REPORTS[site]['downloaded']), lastlen +2, string, idlen+2, G.RUNNING[site].lastannouncetext), target)
+                self.send_msg('%-*s %*s %*s %*s %*s' %(sitelen+1, site, seenlen+2, str(G.REPORTS[site]['seen']), downlen +2, str(G.REPORTS[site]['downloaded']), lastlen +2, string, idlen+2, G.RUNNING[site].lastannouncetext), target)
             except KeyError, e:
                 out('ERROR','No reports yet for %s'%e,site=self.name)
         G.LOCK.release()
-    
+
     def ftime(self, vars):
         target = vars[0]
         out('CMD','time',site=self.name)
-        self.sendMsg(datetime.datetime.now().strftime("The date is %A %d/%m/%Y and the time is %H:%M:%S.   [pyWHATauto]"), target)
-    
+        self.send_msg(datetime.datetime.now().strftime("The date is %A %d/%m/%Y and the time is %H:%M:%S.   [pyWHATauto]"), target)
+
     def fcycle(self, vars):
         target = vars[0]
         if not vars[1]:
@@ -2792,28 +3024,28 @@ class autoBOT( ):
             self.connection.join(target)
         elif len(vars[1]) == 1:
             out('CMD','cycle '+ vars[1][0],site=self.name)
-            self.sendMsg('Cycling channel %s   [pyWHATauto]'%vars[1][0], target)
+            self.send_msg('Cycling channel %s   [pyWHATauto]'%vars[1][0], target)
             self.connection.part(vars[1][0])
             self.connection.join(vars[1][0])
         else:
             if vars[1][0].lower() in self.fromalias.keys():
                 network = self.fromalias[vars[1][0].lower()]
                 if network in G.RUNNING:
-                    self.sendMsg('Cycling channel %s on %s   [pyWHATauto]' %(vars[1][1], network), target)
+                    self.send_msg('Cycling channel %s on %s   [pyWHATauto]' %(vars[1][1], network), target)
                     G.RUNNING[network].part(vars[1][1])
                     G.RUNNING[network].join(vars[1][1])
                 else:
-                    self.sendMsg('I cannot cycle %s on %s since it is not currently connected.   [pyWHATauto]'%(vars[1][1],network), target)
+                    self.send_msg('I cannot cycle %s on %s since it is not currently connected.   [pyWHATauto]'%(vars[1][1],network), target)
             else:
-                self.sendMsg('Incorrect command structure. Syntax: \'%cycle\' rejoins the current channel, \'%cycle <channel>\' rejoins <channel>, \'%cycle <network/alias> <channel>\' rejoins <channel> on <network/alias>.    [pyWHATauto]', target)
-                
-        
-    
+                self.send_msg('Incorrect command structure. Syntax: \'%cycle\' rejoins the current channel, \'%cycle <channel>\' rejoins <channel>, \'%cycle <network/alias> <channel>\' rejoins <channel> on <network/alias>.    [pyWHATauto]', target)
+
+
+
     def fsites(self, vars):
         target = vars[0]
         out('CMD','sites',site=self.name)
         G.LOCK.acquire()
-        self.sendMsg('Site Names: ', target)
+        self.send_msg('Site Names: ', target)
         run = '[RUNNING] '
         for site in G.RUNNING.iterkeys():
             runo = run
@@ -2822,9 +3054,9 @@ class autoBOT( ):
             else:
                 run += "%s=%s, " %(site,self.toalias[site])
             if len(run) >= 350:
-                self.sendMsg(runo[0:-2], target)
+                self.send_msg(runo[0:-2], target)
                 run = run[len(runo):]
-        self.sendMsg(run[0:-2], target)
+        self.send_msg(run[0:-2], target)
         avail = '[AVAILABLE] '
         for site in G.NETWORKS.iterkeys():
             if not site in G.RUNNING:
@@ -2834,12 +3066,12 @@ class autoBOT( ):
                 else:
                     avail += "%s=%s, " %(site, self.toalias[site])
             if len(avail) >= 350:
-                self.sendMsg(ava[0:-2], target)
+                self.send_msg(ava[0:-2], target)
                 avail = avail[len(ava):]
-        avail = avail[0:-2] + '   [pyWHATauto]' 
-        G.LOCK.release()          
-        self.sendMsg(avail, target)
-    
+        avail = avail[0:-2] + '   [pyWHATauto]'
+        G.LOCK.release()
+        self.send_msg(avail, target)
+
     def fcmd(self,vars):
         target = vars[0]
         if vars[1] and len(vars[1]) >= 2:
@@ -2851,12 +3083,12 @@ class autoBOT( ):
                 if network in G.RUNNING.keys():
                     G.RUNNING[network].connection.send_raw(cmd)
                 else:
-                    self.sendMsg('I cannot send the raw command \'%s\' on %s since it is not currently connected.   [pyWHATauto]'%(cmd,network), target)
+                    self.send_msg('I cannot send the raw command \'%s\' on %s since it is not currently connected.   [pyWHATauto]'%(cmd,network), target)
             else:
-                self.sendMsg('I do not know the network/alias %s.   [pyWHATauto]'%network, target)
+                self.send_msg('I do not know the network/alias %s.   [pyWHATauto]'%network, target)
         else:
-            self.sendMsg('That is not a full command. Syntax: \'%cmd <network> <cmd>\' Example: \'%cmd whatcd privmsg :johnnyfive Are you alive?\' Will send a private message to johnnyfive on whatcd.',target)
-        
+            self.send_msg('That is not a full command. Syntax: \'%cmd <network> <cmd>\' Example: \'%cmd whatcd privmsg :johnnyfive Are you alive?\' Will send a private message to johnnyfive on whatcd.',target)
+
     def fdownload(self, vars):
         target = vars[0]
         if vars[1] and len(vars[1]) >= 2:
@@ -2864,16 +3096,16 @@ class autoBOT( ):
                 site = self.fromalias[vars[1][0].lower()]
                 ids = vars[1][1:]
                 for id in ids:
-                    self.sendMsg('Downloading %s from %s.    [pyWHATauto]'%(id, site), target)
+                    self.send_msg('Downloading %s from %s.    [pyWHATauto]'%(id, site), target)
                     if G.TESTING:
                         download(id, site, network=self, target=target)
                     else:
                         kwargs = {'network':self,'target':target}
                         thread.start_new_thread(download, (id, site), kwargs)
             else:
-                self.sendMsg('That site name does not seem valid. Type %sites to see a full list.   [pyWHATauto]', target)
+                self.send_msg('That site name does not seem valid. Type %sites to see a full list.   [pyWHATauto]', target)
         else:
-            self.sendMsg('That is not a full command. Format: %download <site/alias> <torrentID> (<torrentID>) ....    [pyWHATauto]' , target)
+            self.send_msg('That is not a full command. Format: %download <site/alias> <torrentID> (<torrentID>) ....    [pyWHATauto]' , target)
 
     def fhelp(self, vars):
         target = vars[0]
@@ -2881,26 +3113,26 @@ class autoBOT( ):
         commands = vars[2]
         out('CMD','help %s'%(switch),site=self.name)
         if switch is None:
-            self.sendMsg('Commands: %help <topic>, %current, %update, %filter, %quit, %connect, %disconnect, %time, %uptime, %stats, %statsreset, %version, %sites, %free/%drive, %join, %whois, %part, %download, %reload, %whoisall, %whoami, %update, %cycle, %ghost, %nick, %cmd   [pyWHATauto]', target)
+            self.send_msg('Commands: %help <topic>, %current, %update, %filter, %quit, %connect, %disconnect, %time, %uptime, %stats, %statsreset, %version, %sites, %free/%drive, %join, %whois, %part, %download, %reload, %whoisall, %whoami, %update, %cycle, %ghost, %nick, %cmd   [pyWHATauto]', target)
         else:
             try:
-                self.sendMsg(commands[switch[0]]['help'], target)
+                self.send_msg(commands[switch[0]]['help'], target)
             except KeyError:
-                self.sendMsg('That command does not exist. Try %help to see a list of commands.   [pyWHATauto]', target)
-                
+                self.send_msg('That command does not exist. Try %help to see a list of commands.   [pyWHATauto]', target)
+
     def fversion(self, vars):
         target = vars[0]
         out('CMD','version',site=self.name)
-        self.sendMsg('I am currently running pyWA version %s and regex.conf version %s by johnnyfi·ve and blub·ba.'%(VERSION, G.REGVERSION), target)
-    
+        self.send_msg('I am currently running pyWA version %s and regex.conf version %s by johnnyfi·ve and blub·ba.'%(VERSION, G.REGVERSION), target)
+
     def fghost(self, vars):
         target = vars[0]
         out('CMD','ghost',site=self.name)
         self.connection.privmsg('nickserv', "GHOST %s %s" %(self.creds['botnick'], self.creds['nickservpass']))
         self.connection.nick(self.creds['botnick'])
         self.connection.privmsg("nickserv","identify " + self.creds['nickservpass'])
-        self.sendMsg('Ghost command sent.   [pyWHATauto]',target)
-    
+        self.send_msg('Ghost command sent.   [pyWHATauto]',target)
+
     def fuptime(self, vars):
         out('CMD','uptime',site=self.name)
         target = vars[0]
@@ -2915,8 +3147,8 @@ class autoBOT( ):
         if hours > 0: string += " %d" %hours + "h"
         if minutes >0 or hours >0: string += " %d" %minutes +"m"
         string += " %d" %seconds + "s   [pyWHATauto]"
-        self.sendMsg('I have been running for%s.'%string,target)
-    
+        self.send_msg('I have been running for%s.'%string,target)
+
     def fstatsreset(self, vars):
         target = vars[0]
         out('CMD','statsreset',site=self.name)
@@ -2925,11 +3157,11 @@ class autoBOT( ):
             G.REPORTS[section]['seen'] = 0
             G.REPORTS[section]['downloaded'] = 0
         G.LOCK.release()
-        self.sendMsg('The stats reset command has been issued.   [pyWHATauto]', target)
-        
+        self.send_msg('The stats reset command has been issued.   [pyWHATauto]', target)
+
     def fcurrent(self, vars):
         nick = vars[3]
-        
+
         out('CMD','current to %s' %nick,site=self.name)
         #quickly copy the current config to local memory, and release it.
         keylength = 0
@@ -2942,11 +3174,11 @@ class autoBOT( ):
                     fils[filter][key]=val
                     if len(key) > keylength: keylength = len(key)
         G.LOCK.release()
-        
-        
+
+
         #then go through the lengthy process of sending the filters to IRC
         #timer = 0
-        #for every section        
+        #for every section
         order = {'site':0,'active':1,'filtertype':2,'size':3,'resolution':4,'source':5,'season':6,'episde':7,'artist':8,'album':9}
         def compare(x,y):
             if x in order and y in order:
@@ -2957,36 +3189,36 @@ class autoBOT( ):
                 return 1
             else:
                 return 0
-        
+
         lenbnd = 500 - len(nick) - keylength - 20
         for filter in sorted(fils.iterkeys()):
-            self.sendMsg('***Section: '+ filter, nick)
+            self.send_msg('***Section: '+ filter, nick)
             for key in sorted(fils[filter].iterkeys(),cmp=compare):
                 #print fils[filter][key]
                 splits = fils[filter][key].split('\n')
                 msg = '   %-*s  %-s' %(keylength+2, key + ':', splits.pop(0))
                 if len(msg) > lenbnd:
-                    self.sendMsg(msg[0:lenbnd - 20], nick)
+                    self.send_msg(msg[0:lenbnd - 20], nick)
                     msg = '   %-*s  %-s' %(keylength+2, '',msg[lenbnd - 20:])
                     while len(msg) >lenbnd:
-                        self.sendMsg(msg[0:lenbnd - 20], nick)
+                        self.send_msg(msg[0:lenbnd - 20], nick)
                         msg = '   %-*s  %-s' %(keylength+2, '',msg[lenbnd - 20:])
                 for split in splits:
                     oldmsg = msg
                     msg += ', ' + split
                     if len(msg) > lenbnd:
-                        self.sendMsg(oldmsg, nick)
+                        self.send_msg(oldmsg, nick)
                         msg = '   %-*s  %-s' %(keylength+2, '',split)
                         if len(msg) > lenbnd:
-                            self.sendMsg(msg[0:lenbnd - 20], nick)
+                            self.send_msg(msg[0:lenbnd - 20], nick)
                             msg = '   %-*s  %-s' %(keylength+2, '',msg[lenbnd - 20:])
                             while len(msg) >lenbnd:
-                                self.sendMsg(msg[0:lenbnd - 20], nick)
+                                self.send_msg(msg[0:lenbnd - 20], nick)
                                 msg = '   %-*s  %-s' %(keylength+2, '',msg[lenbnd - 20:])
-                        
-                self.sendMsg(msg, nick)
-                
 
-                    
+                self.send_msg(msg, nick)
+
+
+
 if __name__ == "__main__":
     main()
