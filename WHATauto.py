@@ -1475,7 +1475,7 @@ class autoBOT( ):
     
     def disconnect(self):
         if len(self.piggyback) == 1:
-            self.connection.disconnect("pyWHATauto %s - http://whatscripts.com"%VERSION)
+            self.connection.disconnect("pyWHATauto %s - http://bot.whatbarco.de"%VERSION)
         
         irc.remove_global_handler('pubmsg', self.handlePubMessage)
         irc.remove_global_handler('privmsg', self.handlePrivMessage)
@@ -2657,14 +2657,14 @@ class autoBOT( ):
         target = vars[0]
         out('CMD','update',site=self.name)
         try:
-            webFile = urllib.urlopen('http://www.whatscripts.com/update/version')
+            webFile = urllib.urlopen('http://bot.whatbarco.de/update/version')
             x=webFile.read().split('\n')
             webFile.close()
             minversion=x[0]
             regversion=x[1]
             if float(minversion) <= float(VERSION.replace('v','')):
                 if int(regversion) > G.REGVERSION:
-                    regUpdate = urllib.urlopen('http://www.whatscripts.com/update/regex.conf')
+                    regUpdate = urllib.urlopen('http://bot.whatbarco.de/update/regex.conf')
                     localFile = open(os.path.join(G.SCRIPTDIR,'regex.conf'), 'w')
                     localFile.write(regUpdate.read())
                     regUpdate.close()
