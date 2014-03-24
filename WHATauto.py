@@ -19,7 +19,6 @@ VERSION = 'v1.73'
 print('You are running pyWHATauto version %s\n'%VERSION)
 
 #from time import strftime, strptime
-import datetime as dt
 from datetime import datetime, timedelta
 
 from threading import Thread
@@ -308,7 +307,7 @@ def logging(msg):
         log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')
         log2 = open(os.path.join(logdir,'pyWALog.txt'),'w')
         #x = datetime.strptime(logdate,"%m.%d.%Y-%H.%M")
-    if datetime.now() - dt.strptime(logdate,"%m.%d.%Y-%H.%M") > timedelta(hours=24):
+    if datetime.now() - datetime.strptime(logdate,"%m.%d.%Y-%H.%M") > timedelta(hours=24):
         log.close()
         logdate = datetime.now().strftime("%m.%d.%Y-%H.%M")
         log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')    
