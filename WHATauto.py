@@ -1855,7 +1855,7 @@ class AutoBot(object):
         global temp
         self.announcehistory.append(cleanedmsg)
 
-        announce_lines = int(self.regex['announce_lines'])
+        announce_lines = int(self.regex['announcelines'])
         while len(self.announcehistory) >= announce_lines:
             msg = ''
             for i in range(announce_lines):
