@@ -14,7 +14,7 @@ import irclib as irclib
 #import handlePubMSG as handlePubMSG
 from torrentparser import torrentparser
 
-VERSION = 'v1.73'
+VERSION = 'v1.74'
 
 print('You are running pyWHATauto version %s\n'%VERSION)
 
