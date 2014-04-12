@@ -1,6 +1,9 @@
 Changelog:
 
-1.18.13 Version 1.73
+4.7.14 Version 1.74
+ *Change user agent to be unique to pywa
+
+1.18.14 Version 1.73
  *Change user agent to fix what.cd http
  *Require passkey for PTP login
 
