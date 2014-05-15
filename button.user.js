@@ -2,28 +2,25 @@
 // @name           What.cd Whatauto link creator
 // @namespace      test.com
 // @author         blubbablubb
-// @description    later to do
+// @description    Userscript to add a download button next to the torrent on the following sites.
 // @include        http*://*what.cd/*
 // @include        http*://*broadcasthe.net/*
 // @include        http*://*fux0r.eu/*
 // @include        http*://*passthepopcorn.me/*
 // @include        http*://*tehconnection.eu/*
-// @include		   https://www.waffles.fm/*
-// @include        http*://*bitgamer.com/*
+// @include        https://www.waffles.fm/*
 // @include        http*://*hdbits.org/*
 // @include        http*://*bitmetv.org/*
-// @include        http*://*sceneaccess.org/*
+// @include        http*://*sceneaccess.eu/*
 // @include        http*://*awesome-hd.net/*
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
-// @version        0.0.20
-// @date           2010-10-06
+// @version        0.0.21
+// @date           2014-14-05
 // ==/UserScript==
 
-// var weblink = GM_getValue('saveweblink','http://blubba.test.com:8080/dl.pywa?pass=fun');
-
 // EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
-var weblink = "http://linkto.server.com:1337/dl.pywa?pass=youwouldliketoknowthisone";
+var weblink = "http://example.com:1337/dl.pywa?pass=youwouldliketoknowthisone";
 
 if (/https?.*?what\.cd.*/.test(document.URL)) { 
 	var linkregex = /torrents.php\?action=download.*?id=(\d+).*/i;
@@ -50,10 +47,6 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' | ';
 	var site = "waffles";
 	var includename = "2";
-} else if (/https?.*?bitgamer\.com.*/.test(document.URL)) {
-	var linkregex = /download.php\?id=(\d+)&name=.*?\.torrent$/i;
-	var devider = ' ';
-	var site = "bitgamer";
 } else if (/https?.*?hdbits\.org.*/.test(document.URL)) {
 	var linkregex = /download.php\?id=(\d+).*/i;
 	var devider = ' | ';
@@ -64,7 +57,7 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' | ';
 	var site = "bitmetv";
 	var includename = "2";
-} else if (/https?.*?sceneaccess\.org.*/.test(document.URL)) {
+} else if (/https?.*?sceneaccess\.eu.*/.test(document.URL)) {
 	var linkregex = /downloadbig.php\?id=(\d+).*?/i;
 	var devider = ' | ';
 	var site = "sceneaccess";
@@ -93,7 +86,6 @@ for (var i=0; i < document.links.length; i++) {
 
 for (var i=0; i < alltorrents.length; i++) {
 	if (linkregex.exec(alltorrents[i])) {
-		// alert(alltorrents[i]);
 		if (includename == 1) {
 			id = RegExp.$2;
 			name = RegExp.$1;

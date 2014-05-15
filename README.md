@@ -163,13 +163,13 @@ If you want to get informations from your bot or issue download commands just jo
 
 # Download button
 
-If you want to use the pyWA download button to send torrents to your bot via your browser you'll need to install this user script:
+If you want to use the pyWA download button to send torrents to your bot via your browser you'll need to install the user script located in your `pywhatauto-master` directory. It's called `button.user.js`.
 
-http://userscripts.org/scripts/show/85457
+The older (original) version is still located on [userscripts.org](http://userscripts.org/scripts/show/85457).
 
-Once you downloaded that you'll have to edit it's content to reflect your bot's configuration. To do that open it with a text editor of your choice and edit the following line:
+You'll have to edit it's content to reflect your bot's configuration. To do that open it with a text editor of your choice and edit the following line:
 
-    var weblink = "http://linkto.server.com:1337/dl.pywa?pass=youwouldliketoknowthisone";
+    var weblink = "http://example.com:1337/dl.pywa?pass=youwouldliketoknowthisone";
 
 The port and password of the web interface are configured in the `setup.conf`. The relevant bits looks like this:
 
