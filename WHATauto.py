@@ -64,11 +64,11 @@ def main():
     #Create the web object
     try:
         WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup','webserverip'))
+        WEB.setDaemon(True)
+        WEB.start()
+        out('DEBUG','Web thread started.')
     except Exception:
         outexception('Exception caught in main(), when starting webserver')
-    WEB.setDaemon(True)
-    WEB.start()
-    out('DEBUG','Web thread started.')
     try:
         irc = irclib.IRC()
         out('INFO','Main program loaded. Starting bots.')
@@ -897,9 +897,8 @@ class WebServer( Thread ):
         global webpass
         Thread.__init__(self)
         self.loadloc = loadloc
-        self.port = port
         try:
-            self.ip = int(ip)
+            self.port = int(port)
         except ValueError:
             out('WARNING', 'Bad webserver port, could not start webserver')
             raise Exception('Could not start webserver')
