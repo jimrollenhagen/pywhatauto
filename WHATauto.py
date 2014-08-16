@@ -898,7 +898,11 @@ class WebServer( Thread ):
         Thread.__init__(self)
         self.loadloc = loadloc
         self.port = port
-        self.ip = ip
+        try:
+            self.ip = int(ip)
+        except ValueError:
+            out('WARNING', 'Bad webserver port, could not start webserver')
+            raise Exception('Could not start webserver')
         if pw != '':
             webpass = pw
         else:
