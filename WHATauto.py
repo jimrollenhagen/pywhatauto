@@ -897,6 +897,7 @@ class WebServer( Thread ):
         global webpass
         Thread.__init__(self)
         self.loadloc = loadloc
+        self.ip = ip
         try:
             self.port = int(port)
         except ValueError:
