@@ -16,8 +16,8 @@
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
 // @include        http*://*gazellegames.net/*
-// @version        0.0.21
-// @date           2014-14-05
+// @version        0.0.22
+// @date           2014-17-11
 // ==/UserScript==
 
 // EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
