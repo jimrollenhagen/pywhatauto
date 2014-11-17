@@ -15,6 +15,7 @@
 // @include        http*://*awesome-hd.net/*
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
+// @include        http*://*gazellegames.net/*
 // @version        0.0.21
 // @date           2014-14-05
 // ==/UserScript==
@@ -75,6 +76,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' | ';
 	var site = "bithdtv";
 	var includename = "2";
+} else if (/https?.*?gazellegames\.net.*/.test(document.URL)) {
+	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var devider = ' | ';
+	var site = "gazellegames";
 } else {
 	alert("You have found a bug. Go and tell blubba!");
 }
