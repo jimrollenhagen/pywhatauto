@@ -2612,7 +2612,7 @@ class autoBOT( ):
             else:
                 self.sendMsg('I do not know the network/alias %s.   [pyWHATauto]'%network, target)
         else:
-            self.sendMsg('That is not a full command. Syntax: \'%cmd <network> <cmd>\' Example: \'%cmd whatcd privmsg :johnnyfive Are you alive?\' Will send a private message to johnnyfive on whatcd.',target)
+            self.sendMsg('That is not a full command. Syntax: \'%cmd <network> <cmd>\' Example: \'%cmd whatcd privmsg johnnyfive :Are you alive?\' Will send a private message to johnnyfive on whatcd.',target)
         
     def fdownload(self, vars):
         target = vars[0]
