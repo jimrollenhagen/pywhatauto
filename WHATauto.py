@@ -549,6 +549,7 @@ def download(downloadID, site, location=False, network=False, target=False, retr
     out('DEBUG', 'Downloading ID: %s, site: %s, filter: %s, location: %s, network: %s, target: %s, retries: %s, email: %s, announce %s, name %s'%(downloadID, site, filterName, location, network, target, retries, email, announce, name))
     success = False
     error = ''
+    statusmsg = ''
     G.LOCK.acquire()
     
     #load where we should be saving the torrent if not already set
