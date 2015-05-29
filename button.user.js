@@ -17,7 +17,7 @@
 // @include        http*://*x264.me/*
 // @include        http*://*gazellegames.net/*
 // @version        0.0.22
-// @date           2014-29-05
+// @date           2015-29-05
 // ==/UserScript==
 
 // EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
