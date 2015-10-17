@@ -1546,7 +1546,7 @@ class autoBOT( ):
                     #if the filter is set to send a notification on capture
                     if 'notify' in self.filters[filter] and self.filters[filter]['notify'] == '1':
                         notifi = True
-                    elif self.notif['message'] == '1':
+                    elif self.notif.get('message') == '1':
                         if 'notify' in self.filters[filter]:
                             if self.filters[filter]['notify'] != '0':
                                 notifi = True
