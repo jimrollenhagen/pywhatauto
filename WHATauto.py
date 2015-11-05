@@ -1532,7 +1532,7 @@ class autoBOT( ):
                     if 'email' in self.filters[filter] and self.filters[filter]['email'] == '1':
                         gmail = True
                     #or the global email toggle is set, and the filter email option isn't disabled
-                    elif self.notif['email'] == '1':
+                    elif self.notif.get('email') == '1':
                         #if the filter has the email option at all
                         if 'email' in self.filters[filter]:
                             #and it's not set to 0
