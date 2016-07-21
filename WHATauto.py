@@ -1387,7 +1387,7 @@ class autoBOT( ):
                                     out('FILTER',"Detected %s present in %s, which is disallowed by %s" %(str, nkey, key),site=self.name)
                                     return False
                     except Exception, e:
-                        out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[key], value, e),site=self.name)
+                        out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[nkey], value, e),site=self.name)
                         pass
                 else: #otherwise it's not multiple values to be searched, so just match it
                     try:
