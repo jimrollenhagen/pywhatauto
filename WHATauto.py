@@ -1376,7 +1376,9 @@ class autoBOT( ):
                     try:
                         for commastr in value.split(','):
                             for str in commastr.split('\n'):
-                                str = str.lstrip().rstrip()      
+                                str = str.lstrip().rstrip()
+                                if not str:
+                                    continue
                                 if str[0] != '@':
                                     retags = re.findall('[\w\._-]+', release[nkey])
                                     for xt in retags:
