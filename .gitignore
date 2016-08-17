@@ -39,3 +39,10 @@ nosetests.xml
 *.db
 logs/
 cookies/
+
+## pyWhatAuto config files
+credentials.conf
+custom.conf
+filters.conf
+reports.conf
+setup.conf
