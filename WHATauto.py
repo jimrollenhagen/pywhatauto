@@ -25,7 +25,7 @@ from threading import Thread
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 
-import db, time, os, re, ConfigParser, thread, urllib, urllib2, random, cookielib, socket, math, traceback, sqlite3, threading#, WHATparse as WP, #htmllib, 
+import db, time, os, re, ConfigParser, thread, urllib, urllib2, random, cookielib, socket, math, traceback, sqlite3, ssl, threading#, WHATparse as WP, #htmllib, 
 
 def main():
     global irc, log, log2, lastFSCheck, last, SETUP
@@ -63,7 +63,7 @@ def main():
     out('DEBUG','Starting web thread.')  
     #Create the web object
     try:
-        WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup','webserverip'))
+        WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup', 'webserverssl'), SETUP.get('setup', 'certfile'), SETUP.get('setup','webserverip'))
         WEB.setDaemon(True)
         WEB.start()
         out('DEBUG','Web thread started.')
@@ -894,15 +894,21 @@ def sendNotify(site, announce, filter, filename):
 
 class WebServer( Thread ):
     
-    def __init__(self, loadloc, pw, port, ip=''):
+    def __init__(self, loadloc, pw, port, ssl, certfile, ip=''):
         global webpass
         Thread.__init__(self)
         self.loadloc = loadloc
         self.ip = ip
+        self.certfile = certfile
         try:
             self.port = int(port)
         except ValueError:
             out('WARNING', 'Bad webserver port, could not start webserver')
+            raise Exception('Could not start webserver')
+        try:
+            self.ssl = bool(int(ssl))
+        except ValueError:
+            out('WARNING', 'Bad webserver ssl setting, could not start webserver')
             raise Exception('Could not start webserver')
         if pw != '':
             webpass = pw
@@ -915,16 +921,21 @@ class WebServer( Thread ):
         CONN = sqlite3.connect(os.path.join(self.loadloc, 'example.db'))
         #CONN = sqlite3.connect(":memory:")
         C = CONN.cursor()
-        
+
         self.server = ThreadedHTTPServer((self.ip, int(self.port)), MyHandler)
-        print 'started httpserver...'
-        self.server.serve_forever()
+        if self.ssl:
+            print 'started secure httpserver...'
+            self.server.socket = ssl.wrap_socket(self.server.socket, certfile=self.certfile, server_side=True)
+            self.server.serve_forever()
+        else:
+            print 'started httpserver...'
+            self.server.serve_forever()
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     '''Handles requests in threads'''
 
 class MyHandler(BaseHTTPRequestHandler):
-    
+
     def do_GET(self):
         error = False
         try:
