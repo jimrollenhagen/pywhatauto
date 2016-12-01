@@ -18,6 +18,7 @@
 // @include        http*://*gazellegames.net/*
 // @version        0.0.22
 // @date           2014-17-11
+// @include        http*://*passtheheadphones.me/*
 // ==/UserScript==
 
 // EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
@@ -80,6 +81,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
 	var devider = ' | ';
 	var site = "gazellegames";
+} else if (/https?.*?passtheheadphones\.me.*/.test(document.URL)) {
+	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var devider = ' | ';
+	var site = "passtheheadphones";
 } else {
 	alert("You have found a bug. Go and tell blubba!");
 }
