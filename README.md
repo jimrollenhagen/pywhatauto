@@ -24,6 +24,8 @@ If you are on a linux machine just run `unzip master.zip` and you'll end up with
 
 ### setup.conf
 
+Copy setup.conf.example to setup.conf
+
 Setup the watch directory:
  
     torrentDir=/home/username/watch/
@@ -55,6 +57,8 @@ Under [sites], enable the networks you want to watch, 1 is on, 0 is off.
 If you want to use the download button make sure to change the password and port for the web interface. For a more in-depth explanation of the download button read the "Download button" section below.
 
 ### credentials.conf
+
+Copy credentials.conf.example to credentials.conf
 
 In this file you'll have to add the credentials to the various sites and setup your bot on the IRC network. We'll take a look on how this'll look for What.CD:
 
@@ -103,6 +107,8 @@ If you want to group your bot nick and your main account so you can use the same
 This is the directory you want the bot to store the `.torrent` files it snatched. This should also be your torrent client's watch directory.
 
 ### filters.conf
+
+Copy filters.conf.example to filters.conf
 
 This is the file where you tell your bot which releases it should grab for you.
 
