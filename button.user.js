@@ -16,6 +16,7 @@
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
 // @include        http*://*gazellegames.net/*
+// @include        http*://*passtheheadphones.me/*
 // @version        0.0.22
 // @date           2014-17-11
 // ==/UserScript==
@@ -80,6 +81,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
 	var devider = ' | ';
 	var site = "gazellegames";
+} else if (/https?.*?passtheheadphones\.me.*/.test(document.URL)) {
+	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var devider = ' | ';
+	var site = "passtheheadphones";
 } else {
 	alert("You have found a bug. Go and tell blubba!");
 }
