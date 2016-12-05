@@ -189,4 +189,4 @@ Once you've done that, just save the file (make sure the filename ends in `.user
 
 # Support
 
-If you are having troubles getting your bot to work just join `#whatbot` on the What.CD IRC network.
+If you are having troubles getting your bot to work just join `#whatbot` on the PTH IRC network.
