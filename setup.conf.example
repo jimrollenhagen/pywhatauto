@@ -63,6 +63,7 @@ message= 0
 ;this will enable or disable each network
 alphaomega= 0
 animebytes= 0
+apollo= 0
 awesomehd = 0
 baconbits = 0
 BD25= 0
@@ -111,6 +112,7 @@ x264= 0
 [aliases]
 ;change the alias used in commands on IRC. Only 1 alias per network.
 animebytes= ab
+apollo= apl
 awesomehd= ahd
 baconbits= bb
 bd25= b25
