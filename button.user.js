@@ -82,7 +82,7 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' | ';
 	var site = "gazellegames";
 } else if (/https?.*?passtheheadphones\.me.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "passtheheadphones";
 } else {
