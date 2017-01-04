@@ -29,7 +29,7 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' | ';
 	var site = "whatcd";
 } else if (/https?.*?broadcasthe\.net.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "broadcasthenet";
 } else if (/https?.*?fux0r\.eu.*/.test(document.URL)) {
@@ -37,11 +37,11 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var devider = ' : ';
 	var site = "fux0r";
 } else if (/https?.*?passthepopcorn\.me.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "passthepopcorn";
 } else if (/https?.*?tehconnection\.eu.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "tehconnection";
 } else if (/https?.*?waffles\.fm.*/.test(document.URL)) {
@@ -78,11 +78,11 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var site = "bithdtv";
 	var includename = "2";
 } else if (/https?.*?gazellegames\.net.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "gazellegames";
 } else if (/https?.*?passtheheadphones\.me.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=.*/i;
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "passtheheadphones";
 } else {
