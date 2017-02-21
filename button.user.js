@@ -16,7 +16,7 @@
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
 // @include        http*://*gazellegames.net/*
-// @include        http*://*passtheheadphones.me/*
+// @include        http*://*redacted.ch/*
 // @include        http*://*apollo.rip/*
 // @version        0.0.22
 // @date           2014-17-11
@@ -82,10 +82,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "gazellegames";
-} else if (/https?.*?passtheheadphones\.me.*/.test(document.URL)) {
+} else if (/https?.*?redacted\.ch.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
-	var site = "passtheheadphones";
+	var site = "redacted";
 } else if (/https?.*?apollo\.rip.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
