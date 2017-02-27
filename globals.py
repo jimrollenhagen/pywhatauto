@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 from datetime import datetime
 import threading, sys, os, Queue#, thread
 
