@@ -8,11 +8,11 @@
 // @include        http*://*fux0r.eu/*
 // @include        http*://*passthepopcorn.me/*
 // @include        http*://*tehconnection.eu/*
-// @include        https://www.waffles.fm/*
+// @include        https://*waffles.ch/*
 // @include        http*://*hdbits.org/*
 // @include        http*://*bitmetv.org/*
 // @include        http*://*sceneaccess.eu/*
-// @include        http*://*awesome-hd.net/*
+// @include        http*://*awesome-hd.me/*
 // @include        http*://*bit-hdtv.com/*
 // @include        http*://*x264.me/*
 // @include        http*://*gazellegames.net/*
@@ -45,7 +45,7 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "tehconnection";
-} else if (/https?.*?waffles\.fm.*/.test(document.URL)) {
+} else if (/https?.*?waffles\.ch.*/.test(document.URL)) {
 	var linkregex = /.*?download.php\/\d+\/(\d+)\/(.*?)\.torrent\?passkey.*/i;
 	var devider = ' | ';
 	var site = "waffles";
@@ -64,7 +64,7 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /downloadbig.php\?id=(\d+).*?/i;
 	var devider = ' | ';
 	var site = "sceneaccess";
-} else if (/https?.*?awesome-hd\.net.*/.test(document.URL)) {
+} else if (/https?.*?awesome-hd\.me.*/.test(document.URL)) {
 	var linkregex = /torrents.php\?action=download.*?id=(\d+).*?/i;
 	var devider = ' | ';
 	var site = "awesomehd";
