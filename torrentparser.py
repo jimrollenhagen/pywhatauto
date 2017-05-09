@@ -1,13 +1,13 @@
 #!/usr/bin/env python2
 # -*- coding: UTF-8 -*-
-from __future__ import with_statement
-from __future__ import division
+
+
 
 import re, os, hashlib
 
 def main():
     dir = '/home/blubba/.config/deluge/state'
-    print('%-50s %-3s %10.2s  %-5s' %('Infohash','M','MBs','Name'))
+    print(('%-50s %-3s %10.2s  %-5s' %('Infohash','M','MBs','Name')))
     for file in os.listdir(dir):
         root, ext = os.path.splitext(file)
         if ext and ext == '.torrent':
@@ -16,7 +16,7 @@ def main():
                 m = 'Y'
             else:
                 m = 'N'
-            print('%-50s %-3s %10.2f  %-5s' %(root,m,x.mbsize(),x.name()))
+            print(('%-50s %-3s %10.2f  %-5s' %(root,m,x.mbsize(),x.name())))
 
 class torrentparser(object):
     '''
@@ -41,7 +41,7 @@ class torrentparser(object):
                 with open(filename, 'rb') as f:
                     self.torrentfile = f.read()
             except IOError:
-                print('Cannot open file ' + filename)
+                print(('Cannot open file ' + filename))
                 raise
         elif content:
             self.torrentfile = content
@@ -59,23 +59,23 @@ class torrentparser(object):
 
         while i < len(t):
             m = reg.match(t[i:])
-            if self.debug: print 'left: ' + repr(l)
+            if self.debug: print('left: ' + repr(l))
             ty = type(depth[-1])
             if m:
                 if m.group(1): #String
                     string = t[i + len(m.group(1)) + 1 : i + int(m.group(1)) + len(m.group(1)) + 1]
                     if ty == type(list()):
-                        if self.debug: print('Append %s to %s' %(repr(string),repr(depth[-1])))
+                        if self.debug: print(('Append %s to %s' %(repr(string),repr(depth[-1]))))
                         depth[-1].append(string)
                     elif ty == type(dict()):
                         if l[-1]:
                             if l[-1] == 'pieces' and self.debug:
                                 string = 'Here are all the pieces'
-                            if self.debug: print('Map %s -> String: %s' %(l[-1],repr(string)))
+                            if self.debug: print(('Map %s -> String: %s' %(l[-1],repr(string))))
                             depth[-1].update({l[-1] : string})
                             l[-1] = None
                         else:
-                            if self.debug: print('Add left: String: %s' %(repr(string)))
+                            if self.debug: print(('Add left: String: %s' %(repr(string))))
                             l[-1] = string
                     else:
                         raise SyntaxError('Lonely String found: %s' %string)
@@ -87,11 +87,11 @@ class torrentparser(object):
                         depth[-1].append(integer)
                     elif ty == type(dict()):
                         if l[-1]:
-                            if self.debug: print('Map %s -> Integer: %s' %(l[-1],repr(integer)))
+                            if self.debug: print(('Map %s -> Integer: %s' %(l[-1],repr(integer))))
                             depth[-1].update({l[-1] : integer})
                             l[-1] = None
                         else:
-                            if self.debug: print('Add left: Integer: %s' %(repr(integer)))
+                            if self.debug: print(('Add left: Integer: %s' %(repr(integer))))
                             l[-1] = str(integer)
                     else:
                         raise SyntaxError('Lonely Integer found: %s' %str(integer))
@@ -108,21 +108,21 @@ class torrentparser(object):
                 elif m.group(5):
                     if type(depth[-2]) == type(dict()):
                         if ty == type(dict()):
-                            if self.debug: print('Dictionary ended: Map %s -> %s' %(l[-2],repr(depth[-1])))
+                            if self.debug: print(('Dictionary ended: Map %s -> %s' %(l[-2],repr(depth[-1]))))
                             depth[-2].update({l[-2]: depth[-1]})
                             l[-2] = None
                             del l[-1]
                         else:
-                            if self.debug: print('List ended: Map %s -> %s' %(l[-1],repr(depth[-1])))
+                            if self.debug: print(('List ended: Map %s -> %s' %(l[-1],repr(depth[-1]))))
                             depth[-2].update({l[-1]: depth[-1]})
                             l[-1] = None
                     elif type(depth[-2]) == type(list()):
-                        if self.debug: print('List ended: Append %s to %s' %(repr(depth[-1]),repr(depth[-2])))
+                        if self.debug: print(('List ended: Append %s to %s' %(repr(depth[-1]),repr(depth[-2]))))
                         depth[-2].append(depth[-1])
                         if ty == type(dict()):
                             del l[-1]
                     else:
-                        if self.debug: print repr(depth)
+                        if self.debug: print(repr(depth))
                         self.dictionary = depth[-1]
                     del depth[-1]
                     i+=1
@@ -139,7 +139,7 @@ class torrentparser(object):
         if not dictionary:
             dictionary = self.dictionary
         ben = 'd'
-        for key in sorted(dictionary.iterkeys(),key=str.lower):
+        for key in sorted(iter(dictionary.keys()),key=str.lower):
             t = type(dictionary[key])
             ben += "%d:%s"%(len(key),key)
             if t == type(dict()):
@@ -188,7 +188,7 @@ class torrentparser(object):
                 if self.debug: print(path)
         elif 'name' in self.dictionary['info']:
             f.append(self.dictionary['info']['name'])
-            if self.debug: print f[0]
+            if self.debug: print(f[0])
         return(f)
 
     def infohash(self):

@@ -1,5 +1,5 @@
 from datetime import datetime
-import threading, sys, os, Queue#, thread
+import threading, sys, os, queue#, thread
 
 #This is an internal flag I use to test announcements.
 TESTING = False
@@ -43,5 +43,5 @@ CD = ['inline; filename=','inline; Filename=','attachment; Filename=','attachmen
 SCRIPTDIR=os.path.realpath(os.path.dirname(sys.argv[0]))
 #where was this script loaded from?
 
-Q = Queue.Queue()
+Q = queue.Queue()
 #The Queue object used to send the DB new announcements

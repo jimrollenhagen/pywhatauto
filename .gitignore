@@ -37,6 +37,7 @@ nosetests.xml
 
 ## pyWhatAuto specifics:
 *.db
+*-journal
 logs/
 cookies/
 

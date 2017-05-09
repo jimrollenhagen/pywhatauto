@@ -9,7 +9,7 @@ from threading import Thread
 
 def main():
     sq = sqlDB(os.path.realpath(os.path.dirname(sys.argv[0])))
-    print sq
+    print(sq)
 
 class sqlDB( Thread ):
     
@@ -62,7 +62,7 @@ class sqlDB( Thread ):
                 currID += 1
                 
             #Create a new line or replace the current one with the new announce
-            var = (currID, unicode(announcement,('utf-8'),errors='ignore'), downloadid)
+            var = (currID, str(announcement,('utf-8'),errors='ignore'), downloadid)
             self.c.execute("INSERT OR REPLACE INTO %s VALUES ('1', ?, ?, ?)"%site,var)
             self.conn.commit()
         
