@@ -131,7 +131,7 @@ Here's an example to grab all of the 100% Log/Cue Flacs from the year 2014, if y
     year=2014
     watch=/home/username/watch/what/
     
-If you are just interested in specific artists you could add them like this:
+If you are just interested in specific artists you could add them like this. Note that regex must be prefixed with `@`:
 
     [WHAT-JAMS]
     site=whatcd
@@ -141,8 +141,8 @@ If you are just interested in specific artists you could add them like this:
             Phish
             Furthur
             Trey Anastasio
-            Umphrey(.+)s McGee
-            Jerry Joseph.*
+            @Umphrey(.+)s McGee
+            @Jerry Joseph.*
     format=FLAC
             MP3
     year=2014
