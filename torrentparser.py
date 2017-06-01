@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: UTF-8 -*-
 from __future__ import with_statement
 from __future__ import division
@@ -35,7 +35,7 @@ class torrentparser(object):
             return self.parse(filename=filename, content=content)
 
     def parse(self, filename=False, content=False):
-        
+
         if filename:
             try:
                 with open(filename, 'rb') as f:
@@ -48,7 +48,7 @@ class torrentparser(object):
         else:
             return 'No torrent data given'
         self.decode()
-        
+
     def decode(self):
         '''Decodes the raw bencoded file into self.dictionary. Raises SyntaxErrors on errors.'''
         reg = re.compile('^(\d+)?(?:i(\d+)e)?(l?)(d)?(e)?', re.I + re.U) #strings, ints, lists, dicts
@@ -56,7 +56,7 @@ class torrentparser(object):
         depth = [None]
         l = []
         i= 0
-        
+
         while i < len(t):
             m = reg.match(t[i:])
             if self.debug: print 'left: ' + repr(l)
@@ -80,7 +80,7 @@ class torrentparser(object):
                     else:
                         raise SyntaxError('Lonely String found: %s' %string)
                     i += int(m.group(1)) + len(m.group(1)) + 1
-                elif m.group(2): #Integer 
+                elif m.group(2): #Integer
                     integer = int(m.group(2))
                     #print('Integer: ' + str(integer))
                     if ty == type(list()):
@@ -133,7 +133,7 @@ class torrentparser(object):
                         raise SyntaxError('Torrent files is not formated, i: %d/%d remaining content: %s' %(i,len(t),repr(t[i:])))
             else:
                 raise SyntaxError('Torrent files is not formated, i: %d/%d remaining content: %s' %(i,len(t),repr(t[i:])))
-    
+
     def encode(self, dictionary=None):
         '''Returns the bencoded version of the dictionary'''
         if not dictionary:
@@ -153,7 +153,7 @@ class torrentparser(object):
             else:
                 raise SyntaxError('Mallformated dictionary as it seems.')
         return ben + 'e'
-            
+
     def encodelist(self, list):
         '''Returns the bencoded version of the list'''
         ben = 'l'
@@ -175,7 +175,7 @@ class torrentparser(object):
         '''Prints a pretty version of the dictionary'''
         import pprint
         pprint.pprint(self.dictionary)
-        
+
     def files(self):
         '''Returns a list of all files.'''
         f = []
@@ -190,24 +190,24 @@ class torrentparser(object):
             f.append(self.dictionary['info']['name'])
             if self.debug: print f[0]
         return(f)
-            
+
     def infohash(self):
         '''Returns the sha1hash of the infodb'''
         return hashlib.sha1(self.encode(self.dictionary['info'])).hexdigest()
-        
+
     def mbsize(self):
         '''Returns the size in MB'''
         return self.rawsize() / (1024*1024)
-    
+
     def gbsize(self):
         '''Returns the size in GB'''
         return self.rawsize() / (1024*1024*1024)
-    
+
     def name(self):
         '''Returns the name of the torrent, as specified in the info'''
         if 'name' in self.dictionary['info']:
             return self.dictionary['info']['name']
-    
+
     def rawsize(self):
         '''Returns the size in bytes'''
         size = 0
@@ -220,4 +220,4 @@ class torrentparser(object):
 
 if __name__ == "__main__":
     main()
-    
+

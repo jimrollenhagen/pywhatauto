@@ -19,6 +19,7 @@
 // @include        http*://*redacted.ch/*
 // @include        http*://*apollo.rip/*
 // @include        http*://*morethan.tv/*
+// @include        http*://*notwhat.cd/*
 // @version        0.0.22
 // @date           2014-17-11
 // ==/UserScript==
@@ -95,6 +96,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "morethantv";
+} else if (/https?.*?notwhat\.cd.*/.test(document.URL)) {
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
+	var devider = ' | ';
+	var site = "notwhat";
 } else {
 	alert("You have found a bug. Go and tell blubba!");
 }
