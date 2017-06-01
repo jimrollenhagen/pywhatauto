@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: UTF-8 -*-
 #python 2.5 support for the "with" command
 from __future__ import with_statement
