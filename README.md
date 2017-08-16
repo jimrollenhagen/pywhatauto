@@ -173,7 +173,7 @@ If you want to use the pyWA download button to send torrents to your bot via you
 
 The older (original) version can be found at  [userscripts-mirror.org](https://userscripts-mirror.org/scripts/show/85457).
 
-Once the script is installed, you will need to visit your settings page on a gazelle based site and configure the script. All fields auto save.
+Once the script is installed, you will need to either visit your settings page on a gazelle based site and configure the script (All fields auto save) or change the `var weblink` line at the top of script.
 
 ![Settings preview](http://i.imgur.com/t1vPmSq.png)
 

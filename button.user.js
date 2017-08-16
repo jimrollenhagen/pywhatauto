@@ -27,6 +27,9 @@
 // @grant          GM_notification
 // ==/UserScript==
 
+// EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
+var weblink = 'http://example.com:1337/dl.pywa?pass=youwouldliketoknowthisone';
+
 if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents.php\?action=download.*?id=(\d+).*/i;
 	var divider = ' | ';
@@ -112,7 +115,7 @@ if (top10Page) {
 	linkLabel = "[" + linkLabel + "]";
 }
 
-if (settings.pass && settings.url && settings.port) {
+if ((settings.pass && settings.url && settings.port) || checkWeblink()) {
 	alltorrents = [];
 	for (var i = 0; i < document.links.length; i++) {
 		alltorrents.push(document.links[i]);
@@ -141,11 +144,11 @@ if (settingsPage) {
 	document.getElementById('pywhatauto_settings_port').addEventListener('change', saveSettings, false);
 }
 
-if (!settings && !settingsPage) {
+if (!settings && !settingsPage && !checkWeblink()) {
 	GM_notification({
-		text: 'Missing configuration\nVisit user settings and setup',
+		text: 'Missing configuration\nVisit user settings page on gazelle site or edit weblink line at the top of script to configure',
 		title: 'pyWHATauto:',
-		timeout: 6000,
+		timeout: 10000,
 	});
 }
 
@@ -156,9 +159,17 @@ function createLink(linkelement, id, name) {
 	link.appendChild(document.createTextNode(divider));
 
 	if (name) {
-		link.firstChild.href = settings.url + ":" + settings.port + "/dl.pywa?pass=" + settings.pass + "&name=" + name + "&site=" + site + "&id=" + id;
+		if(checkWeblink()) {
+			link.firstChild.href=weblink+"&name="+name+"&site="+site+"&id="+id;
+		} else {
+			link.firstChild.href = settings.url + ":" + settings.port + "/dl.pywa?pass=" + settings.pass + "&name=" + name + "&site=" + site + "&id=" + id;
+		}
 	} else {
-		link.firstChild.href = settings.url + ":" + settings.port + "/dl.pywa?pass=" + settings.pass + "&site=" + site + "&id=" + id;
+		if(checkWeblink()) {
+			link.firstChild.href=weblink+"&site="+site+"&id="+id;
+		} else {
+			link.firstChild.href = settings.url + ":" + settings.port + "/dl.pywa?pass=" + settings.pass + "&site=" + site + "&id=" + id;
+		}
 	}
 	link.firstChild.target = "_blank";
 	link.firstChild.title = "Direct download to pyWHATauto";
@@ -211,4 +222,11 @@ function saveSettings() {
 	} else {
 		elem.style.border = '1px solid red';
 	}
+}
+
+function checkWeblink() {
+	if(weblink && weblink !== 'http://example.com:1337/dl.pywa?pass=youwouldliketoknowthisone'){
+		return true;
+	}
+	return false;
 }
