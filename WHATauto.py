@@ -60,15 +60,16 @@ def main():
     DB.start()
     out('DEBUG','DB thread started.')
     
-    out('DEBUG','Starting web thread.')  
-    #Create the web object
-    try:
-        WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup', 'webserverssl'), SETUP.get('setup', 'certfile'), SETUP.get('setup','webserverip'))
-        WEB.setDaemon(True)
-        WEB.start()
-        out('DEBUG','Web thread started.')
-    except Exception:
-        outexception('Exception caught in main(), when starting webserver')
+    if not (SETUP.get('setup','webserverip') == '') and not (SETUP.get('setup','port') == ''):
+        out('DEBUG','Starting web thread.')  
+        #Create the web object
+        try:
+            WEB = WebServer(G.SCRIPTDIR, SETUP.get('setup','password'), SETUP.get('setup','port'), SETUP.get('setup', 'webserverssl'), SETUP.get('setup', 'certfile'), SETUP.get('setup','webserverip'))
+            WEB.setDaemon(True)
+            WEB.start()
+            out('DEBUG','Web thread started.')
+        except Exception:
+            outexception('Exception caught in main(), when starting webserver')
     try:
         irc = irclib.IRC()
         out('INFO','Main program loaded. Starting bots.')
