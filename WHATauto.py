@@ -448,21 +448,23 @@ def getDriveInfo(drive):
 
 def freeSpaceOK():
     global lastFSCheck
+    global haveFreeSpace
     drive = SETUP.get('setup', 'drive')
-    limit = SETUP.get('setup', 'freepercent')
-    if lastFSCheck == False:
-        lastFSCheck = datetime.now()
-    elif datetime.now()-lastFSCheck > timedelta(seconds=900):
-        #if we haven't run this check in the last 15 minutes, then run it, otherwise it's too soon!
+    limit = float(SETUP.get('setup', 'freePercent'))
+    hdcheck = int(SETUP.get('setup', 'hdcheck'))
+    if (lastFSCheck == False) or (datetime.now()-lastFSCheck > timedelta(minutes=hdcheck)):
+        out('INFO','Checking for free HD space on drive: %s (limit %s%%)' %(str(drive), round(float(limit*100.0), 2)))
         free, percent = getDriveInfo(drive)
-        out('DEBUG','Free HD space: %s' %str(free))
+        lastFSCheck = datetime.now()
+        nextCheck = str((datetime.now()+timedelta(minutes=hdcheck)).strftime("%d/%m-%H:%M:%S"))
+        out('INFO','Free HD space: %s GB (%s%%)' %(str(round(float(free), 2)), str(round(float(percent*100.0), 2))))
+        out('INFO','Next check at: %s' %nextCheck)
         if percent > limit: #if we are still within the limit
-            return True
+            haveFreeSpace = True
         else:
-            return False
-    else: #if we've already checked within the last 15 minutes
-        return True
-    
+            haveFreeSpace = False
+    return haveFreeSpace
+
 def dlCookie(downloadID, site, cj, target, network=False, name=''):
     '''download using login/cookie technique.
     Returns 'preset' if a presetcookie is missing or malformatted,
@@ -1096,6 +1098,9 @@ class autoBOT( ):
                 out('WARNING',"Nickowner on network '%s' is blank!"%self.name,site=self.name)
         # Create a server object, connect and join the channel
         self.connection = irc.server()
+        # Check for free space before connecting
+        if not freeSpaceOK():
+            out('ERROR','You have reached your freePercent limit on drive: %s' %self.setup['drive'])
         G.LOCK.release()
         
     def saveNewConfigs(self, info):
@@ -1566,9 +1571,6 @@ class autoBOT( ):
                         else:
                             notifi = True
                             
-                    if not freeSpaceOK():
-                        out('ERROR','You have reached your free space limit. Torrent is being placed in an overflow folder. TO COME',site=self.name)
-                    
                     if self.advancedfilters == True:
                         #check site filters, just returns true/false!
                         pass
@@ -1578,11 +1580,17 @@ class autoBOT( ):
                     if "size" in self.filters[filter] and self.filters[filter]['size'].rstrip().lstrip() != '':
                         sL=self.filters[filter]['size']
                             
-                    ret = download(downloadID, self.name, location=location, email=gmail, filterName=filter, announce=announce, notify=notifi, sizeLimits=sL)   
-                    G.LOCK.acquire()
-                    G.REPORTS[self.name]['seen'] += 1
-                    if ret[0]: G.REPORTS[self.name]['downloaded'] += 1
-                    G.LOCK.release()     
+                    if not freeSpaceOK():
+                        G.LOCK.acquire()
+                        G.REPORTS[self.name]['seen'] += 1
+                        G.LOCK.release()
+                        out('ERROR','You have reached your freePercent limit on drive: %s' %self.setup['drive'])
+                    else:
+                        ret = download(downloadID, self.name, location=location, email=gmail, filterName=filter, announce=announce, notify=notifi, sizeLimits=sL)
+                        G.LOCK.acquire()
+                        G.REPORTS[self.name]['seen'] += 1
+                        if ret[0]: G.REPORTS[self.name]['downloaded'] += 1
+                        G.LOCK.release()
                 else:
                     G.LOCK.acquire()
                     G.REPORTS[self.name]['seen'] += 1
