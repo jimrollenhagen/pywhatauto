@@ -428,7 +428,7 @@ def getDriveInfo(drive):
     elif os.name == 'posix':
         if SETUP.has_option('setup','limit') and SETUP.get('setup','limit').lstrip().rstrip() != '' and SETUP.get('setup','limit').lstrip().rstrip() != '0':
             import subprocess, shlex
-            args = shlex.split('du -s --bytes %s'%drive)
+            args = shlex.split('du -sx --bytes %s'%drive)
             du = subprocess.Popen(args,stdout=subprocess.PIPE)
             dureturn = du.communicate()[0]
             m = re.search('(\d+).*',dureturn)
