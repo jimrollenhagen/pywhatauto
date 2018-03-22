@@ -30,10 +30,10 @@
 // EDIT THE FOLLOWING LINE WITH YOUR HOST (OR IP) + PORT WHICH YOU HAVE SELECTED IN setup.conf IN pyWHATAUTO
 var weblink = 'http://example.com:1337/dl.pywa?pass=youwouldliketoknowthisone';
 
-if (/https?.*?what\.cd.*/.test(document.URL)) {
-	var linkregex = /torrents.php\?action=download.*?id=(\d+).*/i;
-	var divider = ' | ';
-	var site = "whatcd";
+if (/https?.*?notwhat\.cd.*/.test(document.URL)) {
+	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
+	var devider = ' | ';
+	var site = "notwhat";
 } else if (/https?.*?broadcasthe\.net.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var divider = ' | ';
@@ -99,10 +99,10 @@ if (/https?.*?what\.cd.*/.test(document.URL)) {
 	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
 	var devider = ' | ';
 	var site = "morethantv";
-} else if (/https?.*?notwhat\.cd.*/.test(document.URL)) {
-	var linkregex = /torrents\.php\?action=download.*?id=(\d+).*?authkey=.*?torrent_pass=(?=([a-z0-9]+))\2(?!&)/i;
-	var devider = ' | ';
-	var site = "notwhat";
+} else if (/https?.*?what\.cd.*/.test(document.URL)) {
+	var linkregex = /torrents.php\?action=download.*?id=(\d+).*/i;
+	var divider = ' | ';
+	var site = "whatcd";
 } else {
 	alert("You have found a bug. Go and tell blubba!");
 }
