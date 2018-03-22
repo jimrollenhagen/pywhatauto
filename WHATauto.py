@@ -21,6 +21,9 @@ print('You are running pyWHATauto version %s\n'%VERSION)
 #from time import strftime, strptime
 from datetime import datetime, timedelta
 
+import locale
+locale.setlocale(locale.LC_TIME, '')
+
 from threading import Thread
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
@@ -288,12 +291,12 @@ def out(level, msg, site=False):
                 #print('')
                 if G.LOG:
                     logging('')
-            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),7,level,G.ALIASLENGTH,G.TOALIAS[site], msg)
+            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%x-%X"),7,level,G.ALIASLENGTH,G.TOALIAS[site], msg)
             print(colors[level.lower()]%msg)
             last = site
         else:
-            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),7,level,G.ALIASLENGTH,'', msg)
-            #msg='%s-%s: %s' %(datetime.now().strftime("%m/%d-%H:%M:%S"),level, msg)
+            msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%x-%X"),7,level,G.ALIASLENGTH,'', msg)
+            #msg='%s-%s: %s' %(datetime.now().strftime("%x-%X"),level, msg)
             print(msg)
         if G.LOG:
             logging(msg)
@@ -303,13 +306,13 @@ def logging(msg):
     #Create the log file
     logdir = os.path.join(G.SCRIPTDIR,'logs')
     if not log:
-        logdate = datetime.now().strftime("%m.%d.%Y-%H.%M")
+        logdate = datetime.now().strftime("%Y.%m.%d-%H.%M")
         log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')
         log2 = open(os.path.join(logdir,'pyWALog.txt'),'w')
-        #x = datetime.strptime(logdate,"%m.%d.%Y-%H.%M")
-    if datetime.now() - datetime.strptime(logdate,"%m.%d.%Y-%H.%M") > timedelta(hours=24):
+        #x = datetime.strptime(logdate,"%Y.%m.%d-%H.%M")
+    if datetime.now() - datetime.strptime(logdate,"%Y.%m.%d-%H.%M") > timedelta(hours=24):
         log.close()
-        logdate = datetime.now().strftime("%m.%d.%Y-%H.%M")
+        logdate = datetime.now().strftime("%Y.%m.%d-%H.%M")
         log = open(os.path.join(logdir,'pyWALog-'+logdate+'.txt'),'w')    
     log.write(msg+"\n")
     log.flush() 
@@ -2553,7 +2556,7 @@ class autoBOT( ):
     def ftime(self, vars):
         target = vars[0]
         out('CMD','time',site=self.name)
-        self.sendMsg(datetime.now().strftime("The date is %A %d/%m/%Y and the time is %H:%M:%S.   [pyWHATauto]"), target)
+        self.sendMsg(datetime.now().strftime("The date is %A %x and the time is %X.   [pyWHATauto]"), target)
     
     def fcycle(self, vars):
         target = vars[0]
