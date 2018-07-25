@@ -18,6 +18,12 @@ drive=
 ;This number should be in gigabytes.
 limit=
 
+;At what percentage should pyWA stop downloading torrents?
+freePercent= 5
+
+;How often to check drive for free space, in minutes
+hdcheck=15
+
 ;options in increasing verbosity are: 
 ;'error','msg','info','cmd','filter','debug'
 ;msg means only error messages and chatter will show up.
@@ -35,9 +41,6 @@ chatter= 0
 ;This helps combat some trackers that announce before the torrent is available.
 ;This setting is universal, but only applies to automatic downloads.
 delay=3
-
-;At what percentage should pyWA stop downloading torrents?
-freePercent= 5
 
 ;WEBUI password
 password=
