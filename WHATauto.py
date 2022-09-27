@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 # -*- coding: UTF-8 -*-
 #python 2.5 support for the "with" command
-from __future__ import with_statement
-from __future__ import division
+
+
 
 
 print('Starting main program.')
@@ -12,11 +12,11 @@ import sys
 import globals as G
 import irclib as irclib
 #import handlePubMSG as handlePubMSG
-from torrentparser import torrentparser
+from torrentparser import TorrentFileParser
 
 VERSION = 'v1.74'
 
-print('You are running pyWHATauto version %s\n'%VERSION)
+print(('You are running pyWHATauto version %s\n'%VERSION))
 
 #from time import strftime, strptime
 from datetime import datetime, timedelta
@@ -25,10 +25,11 @@ import locale
 locale.setlocale(locale.LC_TIME, '')
 
 from threading import Thread
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from SocketServer import ThreadingMixIn
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.client import HTTPResponse
+from socketserver import ThreadingMixIn
 
-import db, time, os, re, ConfigParser, thread, urllib, urllib2, random, cookielib, socket, math, traceback, sqlite3, ssl, threading#, WHATparse as WP, #htmllib, 
+import db, time, os, re, configparser, _thread, urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse, random, http.cookiejar, socket, math, traceback, sqlite3, ssl, threading#, WHATparse as WP, #htmllib, 
 
 def main():
     global irc, log, log2, lastFSCheck, last, SETUP
@@ -53,7 +54,7 @@ def main():
             out('ERROR','The program will continue to function normally except where win32file is needed.')
             WIN32FILEE = False
     out('DEBUG','Starting report thread.')        
-    thread.start_new_thread(writeReport,(20,))
+    _thread.start_new_thread(writeReport,(20,))
     out('DEBUG','Report thread started.')
     
     out('DEBUG','Starting DB thread.')  
@@ -62,7 +63,6 @@ def main():
     DB.setDaemon(True)
     DB.start()
     out('DEBUG','DB thread started.')
-    
     if not (SETUP.get('setup','webserverip') == '') and not (SETUP.get('setup','port') == ''):
         out('DEBUG','Starting web thread.')  
         #Create the web object
@@ -80,7 +80,7 @@ def main():
         if G.TESTING:
             startBots()
         else:
-            thread.start_new_thread(startBots,(tuple()))
+            _thread.start_new_thread(startBots,(tuple()))
     except Exception:
         outexception('General exception in main():')
     Prompt(.5) 
@@ -109,41 +109,41 @@ def loadConfigs():
     # G.NETWORKS[sitename]['regex'], ['setup'], ['creds'], ['filters'], G.REPORTS   G.ALIAS
     if os.name == 'nt' and os.path.exists(os.path.join(G.SCRIPTDIR,'nt')):
         print('Loading nt settings')
-        SETUP = ConfigParser.RawConfigParser()
-        SETUP.readfp(open(os.path.join(G.SCRIPTDIR,'nt','setup.conf')))
+        SETUP = configparser.RawConfigParser()
+        SETUP.read_file(open(os.path.join(G.SCRIPTDIR,'nt','setup.conf')))
         
-        CRED = ConfigParser.RawConfigParser()
-        CRED.readfp(open(os.path.join(G.SCRIPTDIR,'nt','credentials.conf')))
+        CRED = configparser.RawConfigParser()
+        CRED.read_file(open(os.path.join(G.SCRIPTDIR,'nt','credentials.conf')))
         
-        CUSTOM = ConfigParser.RawConfigParser()
-        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR,'nt','custom.conf')))
+        CUSTOM = configparser.RawConfigParser()
+        CUSTOM.read_file(open(os.path.join(G.SCRIPTDIR,'nt','custom.conf')))
         
-        FILTERS = ConfigParser.RawConfigParser()
-        FILTERS.readfp(open(os.path.join(G.SCRIPTDIR,'nt','filters.conf')))
+        FILTERS = configparser.RawConfigParser()
+        FILTERS.read_file(open(os.path.join(G.SCRIPTDIR,'nt','filters.conf')))
     
     else:
-        SETUP = ConfigParser.RawConfigParser()
-        SETUP.readfp(open(os.path.join(G.SCRIPTDIR,'setup.conf')))
+        SETUP = configparser.RawConfigParser()
+        SETUP.read_file(open(os.path.join(G.SCRIPTDIR,'setup.conf')))
         
-        CRED = ConfigParser.RawConfigParser()
-        CRED.readfp(open(os.path.join(G.SCRIPTDIR,'credentials.conf')))
+        CRED = configparser.RawConfigParser()
+        CRED.read_file(open(os.path.join(G.SCRIPTDIR,'credentials.conf')))
         
-        CUSTOM = ConfigParser.RawConfigParser()
-        CUSTOM.readfp(open(os.path.join(G.SCRIPTDIR,'custom.conf')))
+        CUSTOM = configparser.RawConfigParser()
+        CUSTOM.read_file(open(os.path.join(G.SCRIPTDIR,'custom.conf')))
         
-        FILTERS = ConfigParser.RawConfigParser()
+        FILTERS = configparser.RawConfigParser()
         try:
-            FILTERS.readfp(open(os.path.join(G.SCRIPTDIR,'filters.conf')))
-        except ConfigParser.ParsingError, e:
+            FILTERS.read_file(open(os.path.join(G.SCRIPTDIR,'filters.conf')))
+        except configparser.ParsingError as e:
             out('ERROR','There is a problem with your filters.conf. If using newlines, please make sure that each new line is tabbed in once. Error: %s'%e)
-            raw_input("This program will now exit (okay): ")
+            input("This program will now exit (okay): ")
             quit()
         
-    REPORT = ConfigParser.RawConfigParser()
-    REPORT.readfp(open(os.path.join(G.SCRIPTDIR,'reports.conf')))
+    REPORT = configparser.RawConfigParser()
+    REPORT.read_file(open(os.path.join(G.SCRIPTDIR,'reports.conf')))
     
-    REGEX = ConfigParser.RawConfigParser()
-    REGEX.readfp(open(os.path.join(G.SCRIPTDIR,'regex.conf')))
+    REGEX = configparser.RawConfigParser()
+    REGEX.read_file(open(os.path.join(G.SCRIPTDIR,'regex.conf')))
 
     
     if SETUP.has_option('debug', 'testing'):
@@ -166,20 +166,20 @@ def loadConfigs():
     for configs in CRED.sections():
         try:
             if CUSTOM.has_option('aliases', configs):
-                if CUSTOM.get('aliases',configs) in G.FROMALIAS.keys():
+                if CUSTOM.get('aliases',configs) in list(G.FROMALIAS.keys()):
                     raise DuplicateError('The alias %s is defined for two sites, %s and %s' %(CUSTOM.get('aliases',configs),G.FROMALIAS[CUSTOM.get('aliases',configs)],configs))
                 G.FROMALIAS[CUSTOM.get('aliases',configs)] = configs
                 G.TOALIAS[configs] = CUSTOM.get('aliases',configs)    
             elif SETUP.has_option('aliases', configs):
-                if SETUP.get('aliases',configs) in G.FROMALIAS.keys():
+                if SETUP.get('aliases',configs) in list(G.FROMALIAS.keys()):
                     raise DuplicateError('The alias %s is defined for two sites, %s and %s' %(SETUP.get('aliases',configs),G.FROMALIAS[SETUP.get('aliases',configs)],configs))
                 G.FROMALIAS[SETUP.get('aliases',configs)] = configs
                 G.TOALIAS[configs] = SETUP.get('aliases',configs)
             else:
                 G.TOALIAS[configs] = configs
-            if not configs in G.FROMALIAS.keys():
+            if not configs in list(G.FROMALIAS.keys()):
                 G.FROMALIAS[configs] = configs
-        except DuplicateError, e:
+        except DuplicateError as e:
             if log:
                 out('ERROR',e)
             else:
@@ -196,14 +196,14 @@ def loadConfigs():
     
     G.ALIASLENGTH = 0
     longest = ''
-    for val in G.TOALIAS.itervalues():
+    for val in G.TOALIAS.values():
         if len(val) > G.ALIASLENGTH:
             G.ALIASLENGTH = len(val)
             longest = val
     if log:
         out('DEBUG','Longest alias is %s (%s) with length %d'%(longest,G.FROMALIAS[longest],G.ALIASLENGTH))
     else:
-        print ('Longest alias is %s (%s) with length %d'%(longest,G.FROMALIAS[longest],G.ALIASLENGTH))
+        print(('Longest alias is %s (%s) with length %d'%(longest,G.FROMALIAS[longest],G.ALIASLENGTH)))
     
     if REGEX.has_option('version','version'):
         G.REGVERSION = int(REGEX.get('version','version'))
@@ -213,7 +213,7 @@ def loadConfigs():
     for configs in CRED.sections(): #for network in credentials.conf
         #for key, value in CRED.items(configs):
         #if the REPORTS.conf is missing this network, add it!
-        if not G.REPORTS.has_key(configs):
+        if configs not in G.REPORTS:
             G.REPORTS[configs] = dict()
             G.REPORTS[configs]['seen'] = 0
             G.REPORTS[configs]['downloaded'] = 0
@@ -246,11 +246,11 @@ def loadConfigs():
         
         #add aliases
         G.NETWORKS[configs]['fromalias'] = dict()
-        for key, value in G.FROMALIAS.iteritems():
+        for key, value in G.FROMALIAS.items():
             G.NETWORKS[configs]['fromalias'][key] = value
         
         G.NETWORKS[configs]['toalias'] = dict()
-        for key, value in G.TOALIAS.iteritems():
+        for key, value in G.TOALIAS.items():
             G.NETWORKS[configs]['toalias'][key] = value
         
         #add filters the networks they belong to
@@ -269,7 +269,7 @@ def loadConfigs():
 def reloadConfigs():
     G.LOCK.acquire()
     loadConfigs()
-    for bot in G.RUNNING.itervalues():
+    for bot in G.RUNNING.values():
         bot.saveNewConfigs(G.NETWORKS[bot.getBotName()])
     G.LOCK.release()
     out('INFO','Configs re-loaded.')
@@ -293,7 +293,7 @@ def out(level, msg, site=False):
                 if G.LOG:
                     logging('')
             msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%x-%X"),7,level,G.ALIASLENGTH,G.TOALIAS[site], msg)
-            print(colors[level.lower()]%msg)
+            print((colors[level.lower()]%msg))
             last = site
         else:
             msg = '%s %-*s %-*s %s' %(datetime.now().strftime("%x-%X"),7,level,G.ALIASLENGTH,'', msg)
@@ -322,7 +322,7 @@ def logging(msg):
 
 def startBots():
     try:
-        for key, value in G.TOSTART.items():
+        for key, value in list(G.TOSTART.items()):
             if value == "1":
                 establishBot(key)
         irc.process_forever()
@@ -334,7 +334,7 @@ def establishBot(sitename):
     '''Does some preliminary checks, creates a new autoBOT instance and connects it to irc'''
     #Need to check if there is sufficient regexp and credentials present
     
-    if sitename in G.RUNNING.keys():
+    if sitename in list(G.RUNNING.keys()):
         out('INFO','The autoBOT for this site is already running')
         return 'The autoBOT for this site is already running'
     
@@ -359,7 +359,7 @@ def establishBot(sitename):
     else:
         ircpw = None
 
-    for key in G.RUNNING.keys():
+    for key in list(G.RUNNING.keys()):
         sre = G.NETWORKS[key]['regex']
         scr = G.NETWORKS[key]['creds']
         if sre['server'].lower() == re['server'].lower():
@@ -393,11 +393,11 @@ def writeReport(n):
     while 1:
         now = 0
         G.LOCK.acquire()
-        for key in G.REPORTS.itervalues():
+        for key in G.REPORTS.values():
             now += int(key['seen'])
         if last != now:
-            config = ConfigParser.RawConfigParser()
-            for section in sorted(G.REPORTS.iterkeys()):
+            config = configparser.RawConfigParser()
+            for section in sorted(G.REPORTS.keys()):
                 config.add_section(section)
                 config.set(section,'seen',G.REPORTS[section]['seen'])
                 config.set(section,'downloaded',G.REPORTS[section]['downloaded'])
@@ -405,10 +405,10 @@ def writeReport(n):
             G.LOCK.release()
             # Writing our configuration file to 'reports.conf'
             try:
-                with open('reports.conf', 'wb') as configfile:
-                        config.write(configfile)
+                with open('reports.conf', 'w') as configfile:
+                    config.write(configfile)
                 last = now
-            except IOError, e:
+            except IOError as e:
                 out('ERROR',e)          
         else:
             G.LOCK.release()
@@ -433,7 +433,7 @@ def getDriveInfo(drive):
         if SETUP.has_option('setup','limit') and SETUP.get('setup','limit').lstrip().rstrip() != '' and SETUP.get('setup','limit').lstrip().rstrip() != '0':
             import subprocess, shlex
             args = shlex.split('du -sx --bytes %s'%drive)
-            du = subprocess.Popen(args,stdout=subprocess.PIPE)
+            du = subprocess.Popen(args,text=True,stdout=subprocess.PIPE)
             dureturn = du.communicate()[0]
             m = re.search('(\d+).*',dureturn)
             used = float(m.group(1)) / (1024 * 1024 * 1024)
@@ -504,7 +504,7 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
             try:
                 cj.load(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
                 G.LOCK.release()
-            except cookielib.LoadError:
+            except http.cookiejar.LoadError:
                 if 'presetcookie' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['presetcookie'] == '1':
                     out('ERROR','The cookie for %s is the wrong format'%site,site)
                     G.LOCK.release()
@@ -537,12 +537,12 @@ def dlCookie(downloadID, site, cj, target, network=False, name=''):
     handle = None
     try:
         handle = getFile(downloadURL,cj)
-    except urllib2.HTTPError, e:
+    except urllib.error.HTTPError as e:
         if int(e.code) in (301,302,303,307):
-            print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+            print('Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, list(e.__dict__.keys())))
             return 'moved'
         else:
-            print 'Caught another http error. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+            print('Caught another http error. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, list(e.__dict__.keys())))
             return 'httperror'
     else:
         return handle
@@ -593,17 +593,20 @@ def download(downloadID, site, location=False, network=False, target=False, retr
             else:
                 time.sleep(0.5)
         
-        cj = cookielib.LWPCookieJar()
+        cj = http.cookiejar.LWPCookieJar()
     
         #use the cookie to download the file
         retreived = dlCookie(downloadID, site, cj, target, network, name)
-        if str(type(retreived)) == "<type 'instance'>":
-            file_info = retreived.info()
+        out('DEBUG', 'Initial retrieved data after dlCookie: %s' % retreived)
+        out('DEBUG', 'Initial retrieved type after dlCookie: %s' % str(type(retreived)))
+        if isinstance(retreived, HTTPResponse):
+            out('DEBUG', 'Verified instance type')
+            file_info = retreived.headers
                 
     retry = False
 
     if file_info:
-        if file_info.type == 'text/html':
+        if file_info.get_content_type() == 'text/html':
             #This could either mean the torrent doesn't exist or we are not logged in
             G.LOCK.acquire()
             if 'presetcookie' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['presetcookie'] == '1':
@@ -613,15 +616,18 @@ def download(downloadID, site, location=False, network=False, target=False, retr
             G.LOCK.release()
             retry = True
                             
-        elif file_info.type == 'application/x-bittorrent':
+        elif file_info.get_content_type() == 'application/x-bittorrent':
             #figure out the filename
             #see if the file has content disposition, if it does read it.
             info = retreived.read()
+            out('DEBUG', 'Retrieved: %s' % info)
             try:
-                tp = torrentparser(debug=False, content=info)
+                tp = TorrentFileParser(info)
+                tp.parse()
+                out('DEBUG', 'Parsed torrent file: %s' % tp.dictionary)
                 mbsize = tp.mbsize()
                 tpname = tp.name()
-            except SyntaxError, e:
+            except SyntaxError as e:
                 out('ERROR','The torrentparser was unable to parse the torrent file. Please let blubba know: %s' %e,site=site)
                 mbsize = None
                 tpname = None
@@ -640,7 +646,7 @@ def download(downloadID, site, location=False, network=False, target=False, retr
                 filename = name
             
             if '.torrent' not in filename: filename += '.torrent'
-            filename = urllib.unquote(filename)
+            filename = urllib.parse.unquote(filename)
             
             sizeOK = True
             if sizeLimits and not (network or fromweb):
@@ -689,7 +695,7 @@ def download(downloadID, site, location=False, network=False, target=False, retr
                     
                 
         else:
-            out('ERROR','unknown filetype received: %s' %file_info.type, site)
+            out('ERROR','unknown filetype received: %s' %file_info.get_content_type(), site)
             retry = True
     elif error:
         statusmsg = error
@@ -748,21 +754,21 @@ def getFile(downloadURL, cj):
         opener = build_opener(cj, debug=1)
     else:
         opener = build_opener(cj)
-    urllib2.install_opener(opener)
-    req = urllib2.Request(downloadURL)
+    urllib.request.install_opener(opener)
+    req = urllib.request.Request(downloadURL)
     req.add_header("User-Agent", "pywa")
-    return urllib2.urlopen(req)
+    return urllib.request.urlopen(req)
 
 def createCookie(site, cj):
-    urlopen = urllib2.urlopen
-    Request = urllib2.Request
+    urlopen = urllib.request.urlopen
+    Request = urllib.request.Request
     #opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
     if SETUP.get('setup','verbosity').lower() == 'debug':
         opener = build_opener(cj, debug=1)
     else:
         opener = build_opener(cj)
         
-    urllib2.install_opener(opener)
+    urllib.request.install_opener(opener)
     G.NETWORKS[site]['regex']
     if 'loginuserpost' in G.NETWORKS[site]['regex'] and G.NETWORKS[site]['regex']['loginuserpost'] != '':
         userpost = G.NETWORKS[site]['regex']['loginuserpost']
@@ -786,7 +792,7 @@ def createCookie(site, cj):
     if site == 'passthepopcorn':
         httpdict['passkey'] = G.NETWORKS[site]['creds']['passkey']
 
-    http_args = urllib.urlencode(httpdict)
+    http_args = urllib.parse.urlencode(httpdict)
 
     #http_args = urllib.urlencode(dict(username=G.NETWORKS[site]['creds']['username'], password=G.NETWORKS[site]['creds']['password']))
 
@@ -799,8 +805,8 @@ def createCookie(site, cj):
     handle = None
     try:
         handle = urlopen(req)
-    except urllib2.HTTPError, e:
-        print 'Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, e.__dict__.keys())
+    except urllib.error.HTTPError as e:
+        print('Caught a redirect. Code: %s, url: %s, headers %s, others: %s' %(e.code, e.url, e.headers.dict, list(e.__dict__.keys())))
         #print cj
         G.LOCK.acquire()
         cj.save(os.path.join(G.SCRIPTDIR,'cookies',site+'.cookie'), ignore_discard=True, ignore_expires=True)
@@ -841,18 +847,18 @@ def createCookie(site, cj):
 
 
 def build_opener(cj, debug=False):
-    http_handler = urllib2.HTTPHandler(debuglevel=debug)
-    https_handler = urllib2.HTTPSHandler(debuglevel=debug)
+    http_handler = urllib.request.HTTPHandler(debuglevel=debug)
+    https_handler = urllib.request.HTTPSHandler(debuglevel=debug)
 
-    cookie_handler = urllib2.HTTPCookieProcessor(cj)
+    cookie_handler = urllib.request.HTTPCookieProcessor(cj)
 
-    opener = urllib2.build_opener(http_handler, https_handler, cookie_handler, smartredirecthandler())
+    opener = urllib.request.build_opener(http_handler, https_handler, cookie_handler, smartredirecthandler())
 
     opener.cookie_jar = cj
 
     return opener
 
-class smartredirecthandler(urllib2.HTTPRedirectHandler):
+class smartredirecthandler(urllib.request.HTTPRedirectHandler):
     
     def redirect_request(self, req, fp, code, msg, hdrs, newurl):
         out('DEBUG','Redirect received. stuff: %s, %s, %s' %(code,msg,newurl))
@@ -882,12 +888,12 @@ def sendEmail(site, announce, filter, filename):
         s.login(gmail, SETUP.get('notification','password'))
         s.sendmail(gmail, gmail, msg.as_string())
         s.quit()
-    except Exception, e:
+    except Exception as e:
         out('ERROR', 'Could not send notify email. Error: %s'%e.smtp_error)
 
 def sendNotify(site, announce, filter, filename):
     sent = False
-    for net in G.RUNNING.itervalues():
+    for net in G.RUNNING.values():
         #G.NETWORKS[bot.getBotName()]
         if net.getBotName() == SETUP.get('notification', 'server'):
             out('INFO', 'Messaging %s with an IRC notification.'%SETUP.get('notification', 'nick'))
@@ -928,11 +934,11 @@ class WebServer( Thread ):
 
         self.server = ThreadedHTTPServer((self.ip, int(self.port)), MyHandler)
         if self.ssl:
-            print 'started secure httpserver...'
+            print('started secure httpserver...')
             self.server.socket = ssl.wrap_socket(self.server.socket, certfile=self.certfile, server_side=True)
             self.server.serve_forever()
         else:
-            print 'started httpserver...'
+            print('started httpserver...')
             self.server.serve_forever()
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -953,7 +959,7 @@ class MyHandler(BaseHTTPRequestHandler):
                             b = a.split('=')
                             if len(b)>1:
                                 args[b[0]] = b[1]
-                        print args
+                        print(args)
                     else:
                         error = True
                     if not error:
@@ -1131,22 +1137,22 @@ class autoBOT( ):
         
     def checkTorrentFolders(self, target):
         #global EXIT
-        for filter in self.filters.keys():
+        for filter in list(self.filters.keys()):
             if self.filters[filter]['active'] == '1':
-                if self.filters[filter].has_key('watch') and self.filters[filter]['watch'] != '':       
+                if 'watch' in self.filters[filter] and self.filters[filter]['watch'] != '':       
                     try:
                         if not os.path.isdir( self.filters[filter]['watch'] ):
                             os.makedirs( self.filters[filter]['watch'] )
-                    except Exception, e:
+                    except Exception as e:
                         out('ERROR', e)
                         if target:
                             self.sendMsg("Error: There was a problem with the custom watch folder for filter '%s'. It will be ignored. : '%s'"%(filter,self.filters[filter]['watch']) , target)
                             self.filters[filter]['watch'] = ''
-        if self.creds.has_key('watch') and self.creds['watch'] != '':       
+        if 'watch' in self.creds and self.creds['watch'] != '':       
             try:
                 if not os.path.isdir( self.creds['watch'] ):
                     os.makedirs( self.creds['watch'] )
-            except Exception, e:
+            except Exception as e:
                 out('ERROR', e)
                 if target:
                     self.sendMsg("Error: There was a problem with the custom watch folder for site '%s'. It will be ignored. : '%s'"%(filter,self.creds['watch']) , target)
@@ -1154,25 +1160,25 @@ class autoBOT( ):
         try:
             if not os.path.isdir( self.setup['torrentdir'] ):
                 os.makedirs( self.setup['torrentdir'] )
-        except os.error, e:
+        except os.error as e:
             out('ERROR', 'torrentDir: %s caused %s'%(self.setup['torrentdir'],e))
-            raw_input("This program will now exit (okay): ")
+            input("This program will now exit (okay): ")
             G.EXIT = True
             sys.exit()
-        except KeyError, e:
+        except KeyError as e:
             out('ERROR', "Setup option 'torrentDir' is missing from setup.conf. So let's put it in there, mmmmkay?")
-            raw_input("This program will now exit (okay): ")
+            input("This program will now exit (okay): ")
             G.EXIT = True
             sys.exit()
-        except Exception, e:
+        except Exception as e:
             out('ERROR', e)
-            raw_input("This program will now exit (okay): ")
+            input("This program will now exit (okay): ")
             G.EXIT = True
             sys.exit()
                         
     def connect(self):
         """Connect to the IRC network and join the appropriate channels"""
-        if not self.name in G.RUNNING.keys():
+        if not self.name in list(G.RUNNING.keys()):
             return
         out('DEBUG','piggyback is %s' %self.piggyback, site=self.name)
         for key in self.piggyback:
@@ -1214,10 +1220,10 @@ class autoBOT( ):
                 #self.connection.connect(self.regex['server'], cport, botnick, ircname=self.creds['botnick'], ssl=cssl)
             
             
-        except irclib.ServerConnectionError, e:
+        except irclib.ServerConnectionError as e:
             out('ERROR','Server Connection Error: %s' %repr(e),site=self.name)
             connerr = True
-        except irclib.ServerNotConnectedError, e:
+        except irclib.ServerNotConnectedError as e:
             out('ERROR','Server Not Connected Error: %s' %repr(e.message()),site=self.name)
             connerr = True
         
@@ -1279,12 +1285,12 @@ class autoBOT( ):
             i += 1
         #these will save the key/values that cause the filter to fail
         badkey = ''
-        for filter in self.filters.keys(): #for each filter
+        for filter in list(self.filters.keys()): #for each filter
             filter_section_ok = True
             out('FILTER','Checking filter section \'%s\'' %filter,site=self.name)
             if self.filters[filter]['active'] == '1':
                 if 'filtertype' in self.filters[filter] and self.filters[filter]['filtertype'] == filtertype or len(self.regex[filtertype+'format'].split(', ')) == 1:
-                    for key, value in self.filters[filter].items(): #for each individual filter option within each filter section
+                    for key, value in list(self.filters[filter].items()): #for each individual filter option within each filter section
                         if filter_section_ok: # this will be set to False if any filters are not met
                             if key in self.regex['tags'] or key in self.regex['not_tags']: # if the filter tag is an allowed tag
                                 if not self.isTagOK(key, value, release, filtertype): #is the release item matched in this filter?
@@ -1294,7 +1300,7 @@ class autoBOT( ):
                     if filter_section_ok: #if every filter option has passed within this filter, then the section is ok.
                         out('INFO','Filter %s matches'%filter,site=self.name)
                         dir = self.setup['torrentdir']
-                        if self.filters[filter].has_key('watch') and self.filters[filter]['watch'] is not None:
+                        if 'watch' in self.filters[filter] and self.filters[filter]['watch'] is not None:
                             dir = self.filters[filter]['watch']
                         return dir, filter #if this entire filter has passed all it's tests, then download it! (pass the directory where the torrent should be saved)
                     #Format the output of the failed filter depending what was wrong
@@ -1305,7 +1311,7 @@ class autoBOT( ):
                             out('INFO','Filter \'%s\' failed because the release did not match %s with \'%s\''%(filter, badkey, m.group(self.regex[filtertype+'format'].split(', ').index(badkey.replace('not_',''))+1)),site=self.name)
                         elif badkey in self.regex['not_tags']:
                             out('INFO','Filter \'%s\' failed because the release contained \'%s\' which is in %s'%(filter, m.group(self.regex[filtertype+'format'].split(', ').index(badkey.replace('not_',''))+1), badkey),site=self.name)
-                    except ValueError, e:
+                    except ValueError as e:
                         out('ERROR', 'There was an error trying to output why the filter did not match. %s'%e)
                 else:
                     out('INFO','Filter \'%s\' is not of type: %s' %(filter,filtertype),site=self.name)
@@ -1317,7 +1323,7 @@ class autoBOT( ):
         if key == 'size': #if the filter includes a size limiter, just return true since we check it later anyway
             return True
         #key = filter key, value = filter value
-        if key in release.keys() or key == "all_tags" and 'tags' in release.keys():# and release[key] is not None: # Check to make sure the key is in the release announcement
+        if key in list(release.keys()) or key == "all_tags" and 'tags' in list(release.keys()):# and release[key] is not None: # Check to make sure the key is in the release announcement
             if value == '1': #if the filter tag is a toggle option, just check that the option exists in the release.
 #                i = self.regex[filtertype+'format'].split(', ').index(key)+1
                 if release[key] is not None:
@@ -1350,7 +1356,7 @@ class autoBOT( ):
                                 else:
                                     out('DEBUG',"Didn't detect %s match using %s in %s" %(key, str,release[key]),site=self.name)
                     out('FILTER',"Didn't detect match in %s" %(key),site=self.name)
-                except Exception, e:
+                except Exception as e:
                     out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
                     pass
             elif key == 'all_tags' and release['tags'] is not None:
@@ -1364,7 +1370,7 @@ class autoBOT( ):
                                     return False
                     out('FILTER',"Detected match using all_tags.", site=self.name)
                     return True
-                except Exception, e:
+                except Exception as e:
                     out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
             else: #if it's not a toggle option, size option, or tags option, check to make sure the values match
                 if release[key] is not None:
@@ -1382,10 +1388,10 @@ class autoBOT( ):
                                     else:
                                         out('DEBUG',"Didn't detect %s match using '%s' in %s" %(key, str, release[key]),site=self.name)
                         out('FILTER',"Didn't detect match in %s" %(key),site=self.name)
-                    except Exception, e:
+                    except Exception as e:
                         out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, key, release[key], value, e),site=self.name)
         elif "not_" in key: # how about if it's a not_filter option?
-            if key.replace('not_','') in release.keys() and release[key.replace('not_','')] is not None:
+            if key.replace('not_','') in list(release.keys()) and release[key.replace('not_','')] is not None:
                 nkey = key.replace('not_','')
                 if nkey == 'tags': #if the not_filter option is not_tags, search the values don't match them
                     try:
@@ -1403,7 +1409,7 @@ class autoBOT( ):
                                 elif str[0] == '@' and re.search(str[1:].lower(), release[nkey].lower().lstrip()):
                                     out('FILTER',"Detected %s present in %s, which is disallowed by %s" %(str, nkey, key),site=self.name)
                                     return False
-                    except Exception, e:
+                    except Exception as e:
                         out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[nkey], value, e),site=self.name)
                         pass
                 else: #otherwise it's not multiple values to be searched, so just match it
@@ -1417,7 +1423,7 @@ class autoBOT( ):
                                 elif str[0] == '@' and re.match(str[1:].lower(), release[nkey].lower().lstrip()):
                                     out('FILTER',"Detected %s present in %s, which is in %s " %(str, nkey, key),site=self.name)
                                     return False
-                    except Exception, e:
+                    except Exception as e:
                         out('ERROR','Tag Error: str: %s key: %s release[key]: %s Value: %s error: %s' %(str, nkey, release[key], value, e),site=self.name)
                         pass
             out('FILTER',"Didn't detect any values present in \'%s\'" %(key),site=self.name)
@@ -1444,11 +1450,11 @@ class autoBOT( ):
                 self.processMessages(msg, args)
             else:
                 for th in self.threads:
-                    if th.isAlive() is not True:
+                    if th.is_alive() is not True:
                         del self.threads[self.threads.index(th)]
                         
                 self.threads.append(threading.Thread(target=self.processMessages, args=(msg, args), name="pubmsg subthread"))
-                self.threads[-1].setDaemon(1)
+                self.threads[-1].daemon = True
                 self.threads[-1].start()
             del self.announcehistory[0]
     
@@ -1479,7 +1485,7 @@ class autoBOT( ):
                         self.handleOwnerMessage(e.arguments()[0], e.target(), e.source()[:e.source().index('!')])
         else:
             if self.setup['chatter'] == '1' or self.setup['chatter'].lower() == 'true':
-                print '%s:%s:%s:%s' %(self.name, e.target(), e.source()[0:e.source().index('!')-1], e.arguments()[0])
+                print('%s:%s:%s:%s' %(self.name, e.target(), e.source()[0:e.source().index('!')-1], e.arguments()[0]))
                 
         brain = False
         for jf in G.OWNER:
@@ -1528,7 +1534,7 @@ class autoBOT( ):
     def processMessages(self, msg, args):
         announce = msg
         matched = False
-        for filtertype, reg in self.reg.items():
+        for filtertype, reg in list(self.reg.items()):
             m = reg.search(announce)
             if m:
                 matched = True
@@ -1597,7 +1603,7 @@ class autoBOT( ):
         #why isn't this an announce?
             try:
                 naughty = False
-                if self.regex.has_key('intro'):
+                if 'intro' in self.regex:
                     for commastr in self.regex['intro'].split(','):
                         for str in commastr.split('\n'):
                             str = str.lstrip().rstrip()
@@ -1614,7 +1620,7 @@ class autoBOT( ):
                     G.RUNNING['whatcd'].naughtyAnnounce(announce,self.name)
                 else:
                     out('DEBUG',"NOT naughty: " + announce,site=self.name)
-            except Exception, e:
+            except Exception as e:
                 out('ERROR','Exception raised when proccessing naughty announce %s, error: %s' %(announce, repr(e)))
                 pass
         else:
@@ -1635,7 +1641,7 @@ class autoBOT( ):
     def sendMsg(self, msg, target):
         try:
             self.connection.privmsg(target, msg)
-        except irclib.ServerNotConnectedError, e:
+        except irclib.ServerNotConnectedError as e:
             out('ERROR','Could not send \'%s\' to %s. Error: %s'%(msg,target,repr(e)),site=self.name)
             
     def sendWhoIs(self, whonick, ownernetwork, ownertarget):
@@ -1645,9 +1651,9 @@ class autoBOT( ):
         if self.connection.is_connected():
             try:
                 self.connection.whois((whonick,))
-            except irclib.ServerConnectionError, e:
+            except irclib.ServerConnectionError as e:
                 out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-            except irclib.ServerNotConnectedError, e:
+            except irclib.ServerNotConnectedError as e:
                 out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
         else:
             G.RUNNING[ownernetwork].sendMsg('Cannot send whois as the bot is currently not connected to the network, try again later.',self.ownertarget)
@@ -1659,9 +1665,9 @@ class autoBOT( ):
         if self.connection.is_connected():
             try:
                 self.connection.whois((whonick,))
-            except irclib.ServerConnectionError, e:
+            except irclib.ServerConnectionError as e:
                 out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-            except irclib.ServerNotConnectedError, e:
+            except irclib.ServerNotConnectedError as e:
                 out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
     
     def sendWhoAmI(self, ownernetwork, ownertarget):
@@ -1672,9 +1678,9 @@ class autoBOT( ):
             if self.connection.is_connected():
                 try:
                     self.connection.whois((self.connection.real_nickname,))
-                except irclib.ServerConnectionError, e:
+                except irclib.ServerConnectionError as e:
                     out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-                except irclib.ServerNotConnectedError, e:
+                except irclib.ServerNotConnectedError as e:
                     out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
                 
     
@@ -1691,9 +1697,9 @@ class autoBOT( ):
                         self.connection.part(channel,self.partPhrase)
                     else:
                         self.connection.part("#"+channel,self.partPhrase)
-        except irclib.ServerConnectionError, e:
+        except irclib.ServerConnectionError as e:
             out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-        except irclib.ServerNotConnectedError, e:
+        except irclib.ServerNotConnectedError as e:
             out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)    
         
     def joinChannel(self,channel=None,channels=None):
@@ -1709,9 +1715,9 @@ class autoBOT( ):
                         self.connection.join(channel)
                     else:
                         self.connection.join("#"+channel)
-        except irclib.ServerConnectionError, e:
+        except irclib.ServerConnectionError as e:
             out('ERROR','Server connection error: %s' %repr(e),site=self.name)
-        except irclib.ServerNotConnectedError, e:
+        except irclib.ServerNotConnectedError as e:
             out('ERROR','Server not Connected Error: %s' %repr(e.message()),site=self.name)   
             
     def joinOtherChannels(self):
@@ -1814,7 +1820,7 @@ class autoBOT( ):
                         if self.who != []: 
                             try:
                                 info = eval('{' + self.who[0] + '}')
-                            except SyntaxError, e:
+                            except SyntaxError as e:
                                 out('ERROR', 'Whoisall parsing error: %s' %e.arguments)
                                 info = None
                                 pass
@@ -1850,11 +1856,11 @@ class autoBOT( ):
                         if self.who != []: 
                             try:
                                 info = eval('{' + self.who[1] + '}')
-                            except SyntaxError, e:
+                            except SyntaxError as e:
                                 out('ERROR', 'WhoAmI parsing error: %s' %e.arguments)
                                 info = None
                                 pass
-                            except IndexError, e:
+                            except IndexError as e:
                                 info = None
                                 out('ERROR', 'WhoAmI IndexError parsing error: %s' %e.arguments)
                                 pass
@@ -1941,7 +1947,7 @@ class autoBOT( ):
                         authstring = authstring.replace('$authchan', self.regex['authchan'])
                     if '$announcechan' in authstring:
                         authstring = authstring.replace('$announcechan', self.regex['announcechannel'])
-                except KeyError, e:
+                except KeyError as e:
                     #spit out an error because that site is missing a certain requirement
                     out('ERROR', 'authstring is incomplete: Error %s' %str(e.message),site=self.name)
                     pass
@@ -1966,9 +1972,9 @@ class autoBOT( ):
             
             self.connection.execute_delayed(1, self.joinOtherChannels)
 
-        except irclib.ServerConnectionError, e:
+        except irclib.ServerConnectionError as e:
             out('ERROR','Server Connection Error: %s' %repr(e),site=self.name)
-        except irclib.ServerNotConnectedError, e:
+        except irclib.ServerNotConnectedError as e:
             out('ERROR','Server Not Connected Error: %s' %repr(e.message()),site=self.name)
 
     
@@ -2039,7 +2045,7 @@ class autoBOT( ):
                     out('DEBUG',"(%s)%s:%s:%s" %(e.eventtype(),e.source(),e.arguments(),e.target()),site=self.name) 
     
     def testtimeout(self):
-        if self.name in G.RUNNING.keys() or self.connection.is_connected():
+        if self.name in list(G.RUNNING.keys()) or self.connection.is_connected():
             if self.piggyback[0] == self.name:
                 if self.pingsent:
                     self.pingsent= False
@@ -2057,7 +2063,7 @@ class autoBOT( ):
                         
                         try:
                             self.connection.ping(self.connection.server)
-                        except irclib.ServerNotConnectedError, e:
+                        except irclib.ServerNotConnectedError as e:
                             out('ERROR', 'Lost connection to server, %s. Disconnecting, wait(15), and reconnect' %e, site=self.name)
                             err = True
                         if err:
@@ -2245,7 +2251,7 @@ class autoBOT( ):
     def fquit(self, vars):
         out('CMD','quit',site=self.name)
         out('INFO','I have received the quit command!',site=self.name)
-        for bot in G.RUNNING.itervalues():
+        for bot in G.RUNNING.values():
             bot.disconnect()
         G.LOCK.acquire()
         #global EXIT
@@ -2263,7 +2269,7 @@ class autoBOT( ):
         self.sendMsg(choice(angorz), target)
         self.sendMsg("BTW, here's a link to my blog: http://perezhilton.com/", target)
         self.partChannel(target)
-        for bot in G.RUNNING.itervalues():
+        for bot in G.RUNNING.values():
             bot.disconnect()
         G.LOCK.acquire()
         #global EXIT
@@ -2280,10 +2286,10 @@ class autoBOT( ):
                 #if there are any items in the changed filters list
                 if len(G.FILTERS_CHANGED) > 0:
                     self.sendMsg('Manually toggled filters:',target)
-                    for key, value in G.FILTERS_CHANGED.items():
+                    for key, value in list(G.FILTERS_CHANGED.items()):
                         self.sendMsg('%s: %s'%(key, value), target)
                 self.sendMsg('Unchanged filters:',target)
-                for key, value in G.FILTERS.items():
+                for key, value in list(G.FILTERS.items()):
                     if key not in G.FILTERS_CHANGED:
                         self.sendMsg('%s: %s'%(key, value), target)
                 G.LOCK.release()
@@ -2331,7 +2337,7 @@ class autoBOT( ):
             network = vars[1][0]
             out('CMD', 'disconnect %s' %network,site=self.name)
             #if it's an alias
-            if network.lower() in self.fromalias.keys():
+            if network.lower() in list(self.fromalias.keys()):
                 network = self.fromalias[network.lower()]
             
                 if network in G.RUNNING:
@@ -2371,7 +2377,7 @@ class autoBOT( ):
             else:
                 name = vars[1][1]
                 network = vars[1][0]
-                if network.lower() in self.fromalias.keys():
+                if network.lower() in list(self.fromalias.keys()):
                     network = self.fromalias[network.lower()]
         
                     out('CMD','Whois sent for %s on %s'%(name, network),site=self.name)
@@ -2387,7 +2393,7 @@ class autoBOT( ):
         out('DEBUG','Whoisall was sent.',site=self.name)
         target = vars[0]
         self.sendMsg('%-16s %-15s %-s' %('Network', 'Botnick', 'Status'), target)
-        for key, network in G.RUNNING.items():
+        for key, network in list(G.RUNNING.items()):
             out('CMD','Whois sent for %s on %s'%(network.regex['botname'],key),site=self.name)
             network.sendWhoIsall(network.regex['botname'],self.name,target)
             if 'announcebotname' in network.regex:
@@ -2398,7 +2404,7 @@ class autoBOT( ):
         out('DEBUG','whoami was sent.',site=self.name)
         target = vars[0]
         self.sendMsg('%-16s %-20s %-s' %('Network', 'Announce Channel', 'Status'), target)
-        for key, network in G.RUNNING.items():
+        for key, network in list(G.RUNNING.items()):
             out('CMD','Whois whoami on %s'%key,site=self.name)
             network.sendWhoAmI(self.name,target)
 
@@ -2416,7 +2422,7 @@ class autoBOT( ):
             try:
                 free, percent = getDriveInfo(self.setup['drive'])
                 msg = '**Free Space on %s: %s GB (%s%%)   [pyWHATauto]' %(self.setup['drive'], round(free,2), round(float(percent*100),2))
-            except TypeError, e:
+            except TypeError as e:
                 out('ERROR',"There was an error. Double check 'drive' in setup.conf. Error: %s" %repr(e),site=self.name)
                 msg = "There was an error. Double check 'drive' in setup.conf."
         if msg != None:
@@ -2432,14 +2438,14 @@ class autoBOT( ):
         target = vars[0]
         out('CMD','update',site=self.name)
         try:
-            webFile = urllib.urlopen('http://bot.whatbarco.de/update/version')
+            webFile = urllib.request.urlopen('http://bot.whatbarco.de/update/version')
             x=webFile.read().split('\n')
             webFile.close()
             minversion=x[0]
             regversion=x[1]
             if float(minversion) <= float(VERSION.replace('v','')):
                 if int(regversion) > G.REGVERSION:
-                    regUpdate = urllib.urlopen('http://bot.whatbarco.de/update/regex.conf')
+                    regUpdate = urllib.request.urlopen('http://bot.whatbarco.de/update/regex.conf')
                     localFile = open(os.path.join(G.SCRIPTDIR,'regex.conf'), 'w')
                     localFile.write(regUpdate.read())
                     regUpdate.close()
@@ -2450,7 +2456,7 @@ class autoBOT( ):
                     self.sendMsg("You are currently running the latest regex.conf file.   [pyWHATauto]", target)
             else:
                 self.sendMsg("You need to update pyWA before you can use the new regex. You are using %s, but %s is required.   [pyWHATauto]"%(VERSION,"v"+str(minversion)), target)
-        except Exception, e:
+        except Exception as e:
             out('ERROR',"Something happened when trying to update. %s"%e,site=self.name)
     
     def fjoin(self, vars):
@@ -2458,7 +2464,7 @@ class autoBOT( ):
         cmds = vars[1]
         out('CMD','join %s' %cmds,site=self.name)
         if cmds and len(cmds) >1:
-            if cmds[0].lower() in self.fromalias.keys():
+            if cmds[0].lower() in list(self.fromalias.keys()):
                 network = self.fromalias[cmds[0].lower()]
                 if network in G.RUNNING:
                     G.RUNNING[network].joinChannel(channels=cmds[1:])
@@ -2480,7 +2486,7 @@ class autoBOT( ):
         out('CMD','connect %s'%network,site=self.name)
         if network is not None:
             for net in network:
-                if net.lower() in self.fromalias.keys():
+                if net.lower() in list(self.fromalias.keys()):
                     msg = establishBot(self.fromalias[net.lower()])
                     self.sendMsg(msg, target)
                 else:
@@ -2494,7 +2500,7 @@ class autoBOT( ):
         cmds = vars[1]
         out('CMD','part %s' %cmds,site=self.name)
         if cmds != None and len(cmds) >1:
-            if cmds[0].lower() in self.fromalias.keys():
+            if cmds[0].lower() in list(self.fromalias.keys()):
                 network = self.fromalias[cmds[0].lower()]
                 if network in G.RUNNING:
                     G.RUNNING[network].partChannel(channels=cmds[1:])
@@ -2519,7 +2525,7 @@ class autoBOT( ):
         lastlen = len('Last Announce')
         idlen = len('DownloadID')
         
-        for site, link in G.RUNNING.iteritems():
+        for site, link in G.RUNNING.items():
             try:
                 seen = G.REPORTS[site]['seen']
                 downloaded = G.REPORTS[site]['downloaded']
@@ -2531,11 +2537,11 @@ class autoBOT( ):
                     sitelen = len(site)
                 if len(link.lastannouncetext) > idlen:
                     idlen = len(link.lastannouncetext)
-            except KeyError, e:
+            except KeyError as e:
                 out('ERROR','No reports yet for %s'%e,site=self.name)
         
         self.sendMsg('%-*s %*s %*s %*s %*s' %(sitelen+1, 'Site', seenlen +2, 'Seen', downlen +2, 'Down', lastlen +2, 'Last Announce', idlen+2, 'DownloadID'), target)
-        for site in sorted(G.RUNNING.iterkeys()):
+        for site in sorted(G.RUNNING.keys()):
             try:
                 if G.RUNNING[site].lastannounce:
                     diff = datetime.now() - G.RUNNING[site].lastannounce
@@ -2550,7 +2556,7 @@ class autoBOT( ):
                 else:
                     string = ""
                 self.sendMsg('%-*s %*s %*s %*s %*s' %(sitelen+1, site, seenlen+2, str(G.REPORTS[site]['seen']), downlen +2, str(G.REPORTS[site]['downloaded']), lastlen +2, string, idlen+2, G.RUNNING[site].lastannouncetext), target)
-            except KeyError, e:
+            except KeyError as e:
                 out('ERROR','No reports yet for %s'%e,site=self.name)
         G.LOCK.release()
     
@@ -2571,7 +2577,7 @@ class autoBOT( ):
             self.connection.part(vars[1][0])
             self.connection.join(vars[1][0])
         else:
-            if vars[1][0].lower() in self.fromalias.keys():
+            if vars[1][0].lower() in list(self.fromalias.keys()):
                 network = self.fromalias[vars[1][0].lower()]
                 if network in G.RUNNING:
                     self.sendMsg('Cycling channel %s on %s   [pyWHATauto]' %(vars[1][1], network), target)
@@ -2590,7 +2596,7 @@ class autoBOT( ):
         G.LOCK.acquire()
         self.sendMsg('Site Names: ', target)
         run = '[RUNNING] '
-        for site in G.RUNNING.iterkeys():
+        for site in G.RUNNING.keys():
             runo = run
             if self.toalias[site] == site:
                 run += "%s, " %site
@@ -2601,7 +2607,7 @@ class autoBOT( ):
                 run = run[len(runo):]
         self.sendMsg(run[0:-2], target)
         avail = '[AVAILABLE] '
-        for site in G.NETWORKS.iterkeys():
+        for site in G.NETWORKS.keys():
             if not site in G.RUNNING:
                 ava = avail
                 if site == self.toalias[site]:
@@ -2623,7 +2629,7 @@ class autoBOT( ):
             out('CMD','cmd: %s'%cmd,site=self.name)
             if network.lower() in self.fromalias:
                 network = self.fromalias[network.lower()]
-                if network in G.RUNNING.keys():
+                if network in list(G.RUNNING.keys()):
                     G.RUNNING[network].connection.send_raw(cmd)
                 else:
                     self.sendMsg('I cannot send the raw command \'%s\' on %s since it is not currently connected.   [pyWHATauto]'%(cmd,network), target)
@@ -2635,7 +2641,7 @@ class autoBOT( ):
     def fdownload(self, vars):
         target = vars[0]
         if vars[1] and len(vars[1]) >= 2:
-            if vars[1][0].lower() in self.fromalias.keys():
+            if vars[1][0].lower() in list(self.fromalias.keys()):
                 site = self.fromalias[vars[1][0].lower()]
                 ids = vars[1][1:]
                 for id in ids:
@@ -2644,7 +2650,7 @@ class autoBOT( ):
                         download(id, site, network=self, target=target)
                     else:
                         kwargs = {'network':self,'target':target}
-                        thread.start_new_thread(download, (id, site), kwargs)
+                        _thread.start_new_thread(download, (id, site), kwargs)
             else:
                 self.sendMsg('That site name does not seem valid. Type %sites to see a full list.   [pyWHATauto]', target)
         else:
@@ -2696,7 +2702,7 @@ class autoBOT( ):
         target = vars[0]
         out('CMD','statsreset',site=self.name)
         G.LOCK.acquire()
-        for section in G.REPORTS.keys():
+        for section in list(G.REPORTS.keys()):
             G.REPORTS[section]['seen'] = 0
             G.REPORTS[section]['downloaded'] = 0
         G.LOCK.release()
@@ -2710,10 +2716,10 @@ class autoBOT( ):
         keylength = 0
         G.LOCK.acquire()
         fils = dict()
-        for site in G.NETWORKS.iterkeys():
-            for filter in G.NETWORKS[site]['filters'].keys():
+        for site in G.NETWORKS.keys():
+            for filter in list(G.NETWORKS[site]['filters'].keys()):
                 fils[filter] = dict()
-                for key, val in G.NETWORKS[site]['filters'][filter].iteritems():
+                for key, val in G.NETWORKS[site]['filters'][filter].items():
                     fils[filter][key]=val
                     if len(key) > keylength: keylength = len(key)
         G.LOCK.release()
@@ -2734,9 +2740,9 @@ class autoBOT( ):
                 return 0
         
         lenbnd = 500 - len(nick) - keylength - 20
-        for filter in sorted(fils.iterkeys()):
+        for filter in sorted(fils.keys()):
             self.sendMsg('***Section: '+ filter, nick)
-            for key in sorted(fils[filter].iterkeys(),cmp=compare):
+            for key in sorted(iter(fils[filter].keys()),cmp=compare):
                 #print fils[filter][key]
                 splits = fils[filter][key].split('\n')
                 msg = '   %-*s  %-s' %(keylength+2, key + ':', splits.pop(0))

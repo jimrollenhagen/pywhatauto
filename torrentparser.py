@@ -1,199 +1,418 @@
-#!/usr/bin/env python2
-# -*- coding: UTF-8 -*-
-from __future__ import with_statement
-from __future__ import division
+#!/usr/bin/env python
+# coding: utf-8
 
-import re, os, hashlib
+"""
+Code yanked from https://github.com/7sDream/torrent_parser/blob/master/torrent_parser.py
 
-def main():
-    dir = '/home/blubba/.config/deluge/state'
-    print('%-50s %-3s %10.2s  %-5s' %('Infohash','M','MBs','Name'))
-    for file in os.listdir(dir):
-        root, ext = os.path.splitext(file)
-        if ext and ext == '.torrent':
-            x = torrentparser(filename=os.path.join(dir,file))
-            if root == x.infohash():
-                m = 'Y'
-            else:
-                m = 'N'
-            print('%-50s %-3s %10.2f  %-5s' %(root,m,x.mbsize(),x.name()))
+Slightly modified because easier
+"""
 
-class torrentparser(object):
-    '''
-    Universal torrent writing and parsing class
-    '''
-    def __init__(self, debug = False, filename=False, content=False):
-        '''Takes a string with the path to the torrent file in filename,
-        or the content of a torrent file in content (as a string).
-        Runs the parses on it.
-        Returns a string if the file could not be opened/read,
-        raises SyntaxError on parsing errors.'''
-        self.torrentfile = None
-        self.debug = debug
-        self.dictionary = None
-        if filename or content:
-            return self.parse(filename=filename, content=content)
+from __future__ import print_function, unicode_literals
 
-    def parse(self, filename=False, content=False):
+import argparse
+import binascii
+import collections
+import io
+import json
+import sys
+import warnings
 
-        if filename:
-            try:
-                with open(filename, 'rb') as f:
-                    self.torrentfile = f.read()
-            except IOError:
-                print('Cannot open file ' + filename)
-                raise
-        elif content:
-            self.torrentfile = content
+try:
+    FileNotFoundError
+except NameError:
+    # Python 2 do not have FileNotFoundError, use IOError instead
+    # noinspection PyShadowingBuiltins
+    FileNotFoundError = IOError
+
+try:
+    # noinspection PyPackageRequirements
+    from chardet import detect as _detect
+except ImportError:
+
+    def _detect(_):
+        warnings.warn("No chardet module installed, encoding will be utf-8")
+        return {"encoding": "utf-8", "confidence": 1}
+
+try:
+    # noinspection PyUnresolvedReferences
+    # For Python 2
+    str_type = unicode
+    bytes_type = str
+except NameError:
+    # For Python 3
+    str_type = str
+    bytes_type = bytes
+
+__all__ = [
+    "InvalidTorrentDataException",
+    "BEncoder",
+    "BDecoder",
+    "encode",
+    "decode",
+    "TorrentFileParser",
+    "TorrentFileCreator",
+    "create_torrent_file",
+    "parse_torrent_file",
+]
+
+__version__ = "0.4.1"
+
+
+def detect(content):
+    return _detect(content)["encoding"]
+
+
+class InvalidTorrentDataException(Exception):
+    def __init__(self, pos, msg=None):
+        msg = msg or "Invalid torrent format when read at pos {pos}"
+        msg = msg.format(pos=pos)
+        super(InvalidTorrentDataException, self).__init__(msg)
+
+
+class __EndCls(object):
+    pass
+
+
+_END = __EndCls()
+
+
+def _check_hash_field_params(name, value):
+    return (
+        isinstance(name, str_type)
+        and isinstance(value, tuple)
+        and len(value) == 2
+        and isinstance(value[0], int)
+        and isinstance(value[1], bool)
+    )
+
+
+class BDecoder(object):
+
+    TYPE_LIST = "list"
+    TYPE_DICT = "dict"
+    TYPE_INT = "int"
+    TYPE_STRING = "string"
+    TYPE_END = "end"
+
+    LIST_INDICATOR = b"l"
+    DICT_INDICATOR = b"d"
+    INT_INDICATOR = b"i"
+    END_INDICATOR = b"e"
+    STRING_INDICATOR = b""
+    STRING_DELIMITER = b":"
+
+    TYPES = [
+        (TYPE_LIST, LIST_INDICATOR),
+        (TYPE_DICT, DICT_INDICATOR),
+        (TYPE_INT, INT_INDICATOR),
+        (TYPE_END, END_INDICATOR),
+        (TYPE_STRING, STRING_INDICATOR),
+    ]
+
+    # see https://docs.python.org/3/library/codecs.html#error-handlers
+    # for other usable error handler string
+    ERROR_HANDLER_USEBYTES = "usebytes"
+
+    def __init__(
+        self,
+        data,
+        use_ordered_dict=False,
+        encoding="utf-8",
+        errors="strict",
+        hash_fields=None,
+        hash_raw=False,
+    ):
+        """
+        :param bytes|file data: bytes or a **binary** file-like object to parse,
+          which means need 'b' mode when use built-in open function
+        :param bool use_ordered_dict: Use collections.OrderedDict as dict
+          container default False, which mean use built-in dict
+        :param str encoding: file content encoding, default utf-8, use 'auto'
+          to enable charset auto detection (need 'chardet' package installed)
+        :param str errors: how to deal with encoding error when try to parse
+          string from content with ``encoding``.
+          see https://docs.python.org/3/library/codecs.html#error-handlers
+          for usable error handler string.
+          in particular, you can use "usebytes" to use "strict" decode mode
+          and let it return raw bytes if error happened.
+        :param Dict[str, Tuple[int, bool]] hash_fields: extra fields should
+          be treated as hash value. dict key is the field name, value is a
+          two-element tuple of (hash_block_length, as_a_list).
+          See :any:`hash_field` for detail
+        """
+        if isinstance(data, bytes_type):
+            data = io.BytesIO(data)
+        elif getattr(data, "read") is not None and getattr(data, "seek") is not None:
+            pass
         else:
-            return 'No torrent data given'
-        self.decode()
+            raise ValueError("Parameter data must be bytes or file like object")
+
+        self._pos = 0
+        self._encoding = encoding
+        self._content = data
+        self._use_ordered_dict = use_ordered_dict
+        self._error_handler = errors
+        self._error_use_bytes = False
+        if self._error_handler == BDecoder.ERROR_HANDLER_USEBYTES:
+            self._error_handler = "strict"
+            self._error_use_bytes = True
+
+        self._hash_fields = {}
+        if hash_fields is not None:
+            for k, v in hash_fields.items():
+                if _check_hash_field_params(k, v):
+                    self._hash_fields[k] = v
+                else:
+                    raise ValueError(
+                        "Invalid hash field parameter, it should be type of "
+                        "Dict[str, Tuple[int, bool]]"
+                    )
+        self._hash_raw = bool(hash_raw)
+
+    def hash_field(self, name, block_length=20, need_list=False):
+        """
+        Let field with the `name` to be treated as hash value, don't decode it
+        as a string.
+
+        :param str name: field name
+        :param int block_length: hash block length for split
+        :param bool need_list:  if True, when the field only has one block(
+          or even empty) its parse result will be a one-element list(
+          or empty list); If False, will be a string in 0 or 1 block condition
+        :return: return self, so you can chained call
+        """
+        v = (block_length, need_list)
+        if _check_hash_field_params(name, v):
+            self._hash_fields[name] = v
+        else:
+            raise ValueError("Invalid hash field parameter")
+        return self
 
     def decode(self):
-        '''Decodes the raw bencoded file into self.dictionary. Raises SyntaxErrors on errors.'''
-        reg = re.compile('^(\d+)?(?:i(\d+)e)?(l?)(d)?(e)?', re.I + re.U) #strings, ints, lists, dicts
-        t = self.torrentfile
-        depth = [None]
-        l = []
-        i= 0
+        """
+        :rtype: dict|list|int|str|unicode|bytes
+        :raise: :any:`InvalidTorrentDataException` when parse failed or error
+          happened when decode string using specified encoding
+        """
+        self._restart()
+        data = self._next_element()
 
-        while i < len(t):
-            m = reg.match(t[i:])
-            if self.debug: print 'left: ' + repr(l)
-            ty = type(depth[-1])
-            if m:
-                if m.group(1): #String
-                    string = t[i + len(m.group(1)) + 1 : i + int(m.group(1)) + len(m.group(1)) + 1]
-                    if ty == type(list()):
-                        if self.debug: print('Append %s to %s' %(repr(string),repr(depth[-1])))
-                        depth[-1].append(string)
-                    elif ty == type(dict()):
-                        if l[-1]:
-                            if l[-1] == 'pieces' and self.debug:
-                                string = 'Here are all the pieces'
-                            if self.debug: print('Map %s -> String: %s' %(l[-1],repr(string)))
-                            depth[-1].update({l[-1] : string})
-                            l[-1] = None
-                        else:
-                            if self.debug: print('Add left: String: %s' %(repr(string)))
-                            l[-1] = string
-                    else:
-                        raise SyntaxError('Lonely String found: %s' %string)
-                    i += int(m.group(1)) + len(m.group(1)) + 1
-                elif m.group(2): #Integer
-                    integer = int(m.group(2))
-                    #print('Integer: ' + str(integer))
-                    if ty == type(list()):
-                        depth[-1].append(integer)
-                    elif ty == type(dict()):
-                        if l[-1]:
-                            if self.debug: print('Map %s -> Integer: %s' %(l[-1],repr(integer)))
-                            depth[-1].update({l[-1] : integer})
-                            l[-1] = None
-                        else:
-                            if self.debug: print('Add left: Integer: %s' %(repr(integer)))
-                            l[-1] = str(integer)
-                    else:
-                        raise SyntaxError('Lonely Integer found: %s' %str(integer))
-                    i += len(str(m.group(2))) + 2
-                elif m.group(3): #List
-                    if self.debug: print('List found')
-                    depth.append(list())
-                    i+=1
-                elif m.group(4):
-                    if self.debug: print('Dictionary found')
-                    depth.append(dict())
-                    l.append(None)
-                    i+=1
-                elif m.group(5):
-                    if type(depth[-2]) == type(dict()):
-                        if ty == type(dict()):
-                            if self.debug: print('Dictionary ended: Map %s -> %s' %(l[-2],repr(depth[-1])))
-                            depth[-2].update({l[-2]: depth[-1]})
-                            l[-2] = None
-                            del l[-1]
-                        else:
-                            if self.debug: print('List ended: Map %s -> %s' %(l[-1],repr(depth[-1])))
-                            depth[-2].update({l[-1]: depth[-1]})
-                            l[-1] = None
-                    elif type(depth[-2]) == type(list()):
-                        if self.debug: print('List ended: Append %s to %s' %(repr(depth[-1]),repr(depth[-2])))
-                        depth[-2].append(depth[-1])
-                        if ty == type(dict()):
-                            del l[-1]
-                    else:
-                        if self.debug: print repr(depth)
-                        self.dictionary = depth[-1]
-                    del depth[-1]
-                    i+=1
+        try:
+            c = self._read_byte(1, True)
+            raise InvalidTorrentDataException(
+                0, "Expect EOF, but get [{}] at pos {}".format(c, self._pos)
+            )
+        except EOFError:  # expect EOF
+            pass
+
+        return data
+
+    def _read_byte(self, count=1, raise_eof=False):
+        assert count >= 0
+        gotten = self._content.read(count)
+        if count != 0 and len(gotten) == 0:
+            if raise_eof:
+                raise EOFError()
+            raise InvalidTorrentDataException(
+                self._pos, "Unexpected EOF when reading torrent file"
+            )
+        self._pos += count
+        return gotten
+
+    def _seek_back(self, count):
+        self._content.seek(-count, 1)
+        self._pos = self._pos - count
+
+    def _restart(self):
+        self._content.seek(0, 0)
+        self._pos = 0
+
+    def _dict_items_generator(self):
+        while True:
+            k = self._next_element()
+            if k is _END:
+                return
+            if not isinstance(k, str_type) and not isinstance(k, bytes_type):
+                raise InvalidTorrentDataException(
+                    self._pos, "Type of dict key can't be " + type(k).__name__
+                )
+            if k in self._hash_fields:
+                v = self._next_hash(*self._hash_fields[k])
+            else:
+                v = self._next_element(k)
+            if k == "encoding":
+                self._encoding = v
+            yield k, v
+
+    def _next_dict(self):
+        data = collections.OrderedDict() if self._use_ordered_dict else dict()
+        for key, element in self._dict_items_generator():
+            data[key] = element
+        return data
+
+    def _list_items_generator(self):
+        while True:
+            element = self._next_element()
+            if element is _END:
+                return
+            yield element
+
+    def _next_list(self):
+        return [element for element in self._list_items_generator()]
+
+    def _next_int(self, end=END_INDICATOR):
+        value = 0
+        char = self._read_byte(1)
+        neg = False
+        while char != end:
+            if not neg and char == b"-":
+                neg = True
+            elif not b"0" <= char <= b"9":
+                raise InvalidTorrentDataException(self._pos - 1)
+            else:
+                value = value * 10 + int(char) - int(b"0")
+            char = self._read_byte(1)
+        return -value if neg else value
+
+    def _next_string(self, need_decode=True, field=None):
+        length = self._next_int(self.STRING_DELIMITER)
+        raw = self._read_byte(length)
+        if need_decode:
+            encoding = self._encoding
+            if encoding == "auto":
+                self.encoding = encoding = detect(raw)
+            try:
+                string = raw.decode(encoding, self._error_handler)
+            except UnicodeDecodeError as e:
+                if self._error_use_bytes:
+                    return raw
                 else:
-                    if i+1 == len(t):
-                        i+=1
-                    else:
-                        raise SyntaxError('Torrent files is not formated, i: %d/%d remaining content: %s' %(i,len(t),repr(t[i:])))
-            else:
-                raise SyntaxError('Torrent files is not formated, i: %d/%d remaining content: %s' %(i,len(t),repr(t[i:])))
+                    msg = [
+                        "Fail to decode string at pos {pos} using encoding ",
+                        e.encoding,
+                    ]
+                    if field:
+                        msg.extend(
+                            [
+                                ' when parser field "',
+                                field,
+                                '"' ", maybe it is an hash field. ",
+                                'You can use self.hash_field("',
+                                field,
+                                '") ',
+                                "to let it be treated as hash value, ",
+                                "so this error may disappear",
+                            ]
+                        )
+                    raise InvalidTorrentDataException(
+                        self._pos - length + e.start, "".join(msg)
+                    )
+            return string
+        return raw
 
-    def encode(self, dictionary=None):
-        '''Returns the bencoded version of the dictionary'''
-        if not dictionary:
-            dictionary = self.dictionary
-        ben = 'd'
-        for key in sorted(dictionary.iterkeys(),key=str.lower):
-            t = type(dictionary[key])
-            ben += "%d:%s"%(len(key),key)
-            if t == type(dict()):
-                ben += self.encode(dictionary[key])
-            elif t == type(str()):
-                ben += '%d:%s' %(len(dictionary[key]), dictionary[key])
-            elif t == type(int()):
-                ben += 'i%de' %dictionary[key]
-            elif t == type(list()):
-                ben += self.encodelist(dictionary[key])
-            else:
-                raise SyntaxError('Mallformated dictionary as it seems.')
-        return ben + 'e'
+    def _next_hash(self, p_len, need_list):
+        raw = self._next_string(need_decode=False)
+        if len(raw) % p_len != 0:
+            raise InvalidTorrentDataException(
+                self._pos - len(raw), "Hash bit length not match at pos {pos}"
+            )
+        if self._hash_raw:
+            return raw
+        res = [
+            binascii.hexlify(chunk).decode("ascii")
+            for chunk in (raw[x : x + p_len] for x in range(0, len(raw), p_len))
+        ]
+        if len(res) == 0 and not need_list:
+            return ""
+        if len(res) == 1 and not need_list:
+            return res[0]
+        return res
 
-    def encodelist(self, list):
-        '''Returns the bencoded version of the list'''
-        ben = 'l'
-        for key in list:
-            t = type(key)
-            if t == type(dict()):
-                ben += self.encode(key)
-            elif t == type(str()):
-                ben += '%d:%s' %(len(key), key)
-            elif t == type(int()):
-                ben += 'i%de' %key
-            elif t == type(list()):
-                ben += self.encodelist(key)
-            else:
-                raise SyntaxError('Mallformated dictionary as it seems.')
-        return ben + 'e'
+    @staticmethod
+    def _next_end():
+        return _END
 
-    def pretty(self):
-        '''Prints a pretty version of the dictionary'''
-        import pprint
-        pprint.pprint(self.dictionary)
+    def _next_type(self):
+        for (element_type, indicator) in self.TYPES:
+            indicator_length = len(indicator)
+            char = self._read_byte(indicator_length)
+            if indicator == char:
+                return element_type
+            self._seek_back(indicator_length)
+        raise InvalidTorrentDataException(self._pos)
 
-    def files(self):
-        '''Returns a list of all files.'''
-        f = []
-        if 'files' in self.dictionary['info']:
-            for ff in self.dictionary['info']['files']:
-                path = self.dictionary['info']['name']
-                for fff in ff['path']:
-                    path = os.path.join(path,fff)
-                f.append(path)
-                if self.debug: print(path)
-        elif 'name' in self.dictionary['info']:
-            f.append(self.dictionary['info']['name'])
-            if self.debug: print f[0]
-        return(f)
+    def _type_to_func(self, t):
+        return getattr(self, "_next_" + t)
 
-    def infohash(self):
-        '''Returns the sha1hash of the infodb'''
-        return hashlib.sha1(self.encode(self.dictionary['info'])).hexdigest()
+    def _next_element(self, field=None):
+        element_type = self._next_type()
+        if element_type is BDecoder.TYPE_STRING and field is not None:
+            element = self._type_to_func(element_type)(field=field)
+        else:
+            element = self._type_to_func(element_type)()
+        return element
+
+class TorrentFileParser(object):
+    HASH_FIELD_DEFAULT_PARAMS = {
+        # field length need_list
+        "pieces": (20, True),
+        "ed2k": (16, False),
+        "filehash": (20, False),
+        "pieces root": (32, False),
+    }
+
+    def __init__(
+        self,
+        fp,
+        use_ordered_dict=False,
+        encoding="utf-8",
+        errors=BDecoder.ERROR_HANDLER_USEBYTES,
+        hash_fields=None,
+        hash_raw=False,
+    ):
+        """
+        See :any:`BDecoder.__init__` for parameter description.
+        This class will use some default ``hash_fields`` values, and use "usebytes" as error handler
+        compare to use :any:`BDecoder` directly.
+
+        :param file fp: file to be parse
+        :param bool use_ordered_dict:
+        :param str encoding:
+        :param str errors:
+        :param Dict[str, Tuple[int, bool]] hash_fields:
+        :param bool hash_raw:
+        """
+        self.dictionary = {}
+        torrent_hash_fields = dict(TorrentFileParser.HASH_FIELD_DEFAULT_PARAMS)
+        if hash_fields is not None:
+            torrent_hash_fields.update(hash_fields)
+
+        self._decoder = BDecoder(
+            fp,
+            use_ordered_dict,
+            encoding,
+            errors,
+            torrent_hash_fields,
+            hash_raw,
+        )
+
+    def hash_field(self, name, block_length=20, need_dict=False):
+        """
+        See :any:`BDecoder.hash_field` for parameter description
+
+        :param name:
+        :param block_length:
+        :param need_dict:
+        :return: return self, so you can chained call
+        """
+        self._decoder.hash_field(name, block_length, need_dict)
+        return self
+
+    def parse(self):
+        """
+        Parse provided file
+        """
+        self.dictionary = self._decoder.decode()
 
     def mbsize(self):
         '''Returns the size in MB'''
@@ -217,7 +436,3 @@ class torrentparser(object):
         elif 'name' in self.dictionary['info']:
             size += self.dictionary['info']['length']
         return size
-
-if __name__ == "__main__":
-    main()
-
